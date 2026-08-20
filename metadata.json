@@ -1,0 +1,7 @@
+{
+  "name": "CivicFix",
+  "description": "AI Urban Mobility & Civic Safety Platform featuring CivicLive interactive incident map, citizen reporting, municipal triage, and AI assistant.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
+
