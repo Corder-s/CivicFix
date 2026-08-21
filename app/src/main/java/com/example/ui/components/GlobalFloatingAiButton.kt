@@ -66,7 +66,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.localization.CivicStrings
 import com.example.data.localization.civicString
+import com.example.ui.AppPlatformMode
 import com.example.ui.theme.CivicDarkGray
+import com.example.ui.theme.CivicNavyDark
+import com.example.ui.theme.CivicNavyPrimary
 import com.example.ui.theme.CivicOrangeDark
 import com.example.ui.theme.CivicOrangeLight
 import com.example.ui.theme.CivicOrangePrimary
@@ -75,17 +78,21 @@ import com.example.ui.theme.CivicSlate400
 import com.example.ui.theme.CivicSlate600
 import com.example.ui.theme.CivicSlate800
 import com.example.ui.theme.CivicSlate900
+import androidx.compose.material.icons.filled.DirectionsBus
+import androidx.compose.material.icons.filled.Navigation
+import androidx.compose.material.icons.filled.Shield
 
 /**
  * Circular Shrinking Floating AI Agent Element
  * - Shrunk by default into a sleek circular FAB (CircleShape, 54.dp) with vibrant gradient and AI sparkle icon when idle.
+ * - Dynamically switches context between AI Road Safety and CivicFix mode.
  * - When tapped, smoothly expands into quick action chips and full AI chat panel.
  * - Clicking outside the panel automatically closes/shrinks it.
- * - Fully translated through civicString() for all languages.
  */
 @Composable
 fun GlobalFloatingAiButton(
     bottomPadding: Dp = 80.dp,
+    platformMode: AppPlatformMode = AppPlatformMode.AI_ROAD_SAFETY,
     onOpenAiChat: () -> Unit,
     onQuickAction: (String) -> Unit,
     modifier: Modifier = Modifier
@@ -102,6 +109,13 @@ fun GlobalFloatingAiButton(
         ),
         label = "pulse_scale"
     )
+
+    val primaryColor = if (platformMode == AppPlatformMode.AI_ROAD_SAFETY) CivicOrangePrimary else CivicNavyPrimary
+    val gradientColors = if (platformMode == AppPlatformMode.AI_ROAD_SAFETY) {
+        listOf(CivicOrangePrimary, CivicOrangeDark, CivicNavyDark)
+    } else {
+        listOf(CivicNavyPrimary, CivicNavyDark, CivicDarkGray)
+    }
 
     // Full screen overlay when expanded to detect outside clicks and close auto-magically
     if (isExpanded) {
@@ -166,12 +180,12 @@ fun GlobalFloatingAiButton(
                             ) {
                                 Surface(
                                     shape = CircleShape,
-                                    color = CivicOrangePrimary,
+                                    color = primaryColor,
                                     modifier = Modifier.size(28.dp)
                                 ) {
                                     Box(contentAlignment = Alignment.Center) {
                                         Icon(
-                                            imageVector = Icons.Default.AutoAwesome,
+                                            imageVector = if (platformMode == AppPlatformMode.AI_ROAD_SAFETY) Icons.Default.Shield else Icons.Default.AutoAwesome,
                                             contentDescription = null,
                                             tint = Color.White,
                                             modifier = Modifier.size(15.dp)
@@ -180,14 +194,14 @@ fun GlobalFloatingAiButton(
                                 }
                                 Column {
                                     Text(
-                                        text = civicString(CivicStrings.ASK_AI_TITLE),
+                                        text = if (platformMode == AppPlatformMode.AI_ROAD_SAFETY) "Road Safety AI" else "CivicFix AI",
                                         fontSize = 13.5.sp,
                                         fontWeight = FontWeight.ExtraBold,
                                         color = CivicDarkGray
                                     )
                                     Text(
-                                        text = civicString(CivicStrings.AI_HOW_CAN_I_HELP),
-                                        fontSize = 10.5.sp,
+                                        text = if (platformMode == AppPlatformMode.AI_ROAD_SAFETY) "Route Safety & Transit Advisor" else "Grievance & Resolution Guide",
+                                        fontSize = 10.sp,
                                         color = CivicSlate600,
                                         maxLines = 1
                                     )
@@ -210,49 +224,86 @@ fun GlobalFloatingAiButton(
 
                         Spacer(modifier = Modifier.height(2.dp))
 
-                        // Action 1: File/Draft New Issue
-                        AiCircleActionRow(
-                            icon = Icons.Default.Report,
-                            iconColor = CivicOrangePrimary,
-                            title = civicString(CivicStrings.AI_ACTION_REPORT),
-                            subtitle = civicString(CivicStrings.AI_ACTION_REPORT_DESC),
-                            onClick = {
-                                isExpanded = false
-                                onQuickAction("report_issue")
-                                onOpenAiChat()
-                            }
-                        )
+                        if (platformMode == AppPlatformMode.AI_ROAD_SAFETY) {
+                            // Road Safety Actions
+                            AiCircleActionRow(
+                                icon = Icons.Default.Navigation,
+                                iconColor = CivicOrangePrimary,
+                                title = "Plan Safest Route",
+                                subtitle = "AI flood bypass & safety score",
+                                onClick = {
+                                    isExpanded = false
+                                    onQuickAction("plan_route")
+                                    onOpenAiChat()
+                                }
+                            )
 
-                        // Action 2: Track Status
-                        AiCircleActionRow(
-                            icon = Icons.Default.TrackChanges,
-                            iconColor = Color(0xFF16A34A),
-                            title = civicString(CivicStrings.AI_ACTION_TRACK),
-                            subtitle = civicString(CivicStrings.AI_ACTION_TRACK_DESC),
-                            onClick = {
-                                isExpanded = false
-                                onQuickAction("track_report")
-                                onOpenAiChat()
-                            }
-                        )
+                            AiCircleActionRow(
+                                icon = Icons.Default.DirectionsBus,
+                                iconColor = Color(0xFF16A34A),
+                                title = "Bus & Transit Schedules",
+                                subtitle = "Route frequency & crowd prediction",
+                                onClick = {
+                                    isExpanded = false
+                                    onQuickAction("bus_routes")
+                                    onOpenAiChat()
+                                }
+                            )
 
-                        // Action 3: Find Nearby Issues
-                        AiCircleActionRow(
-                            icon = Icons.Default.LocationSearching,
-                            iconColor = Color(0xFF4F46E5),
-                            title = civicString(CivicStrings.AI_ACTION_NEARBY),
-                            subtitle = civicString(CivicStrings.AI_ACTION_NEARBY_DESC),
-                            onClick = {
-                                isExpanded = false
-                                onQuickAction("find_similar")
-                                onOpenAiChat()
-                            }
-                        )
+                            AiCircleActionRow(
+                                icon = Icons.Default.Shield,
+                                iconColor = Color(0xFF4F46E5),
+                                title = "Weather & Flood Risks",
+                                subtitle = "Live waterlogging alerts",
+                                onClick = {
+                                    isExpanded = false
+                                    onQuickAction("weather_risk")
+                                    onOpenAiChat()
+                                }
+                            )
+                        } else {
+                            // CivicFix Actions
+                            AiCircleActionRow(
+                                icon = Icons.Default.Report,
+                                iconColor = CivicNavyPrimary,
+                                title = civicString(CivicStrings.AI_ACTION_REPORT),
+                                subtitle = civicString(CivicStrings.AI_ACTION_REPORT_DESC),
+                                onClick = {
+                                    isExpanded = false
+                                    onQuickAction("report_issue")
+                                    onOpenAiChat()
+                                }
+                            )
 
-                        // Action 4: Ask Municipal Questions / Full Chat
+                            AiCircleActionRow(
+                                icon = Icons.Default.TrackChanges,
+                                iconColor = Color(0xFF16A34A),
+                                title = civicString(CivicStrings.AI_ACTION_TRACK),
+                                subtitle = civicString(CivicStrings.AI_ACTION_TRACK_DESC),
+                                onClick = {
+                                    isExpanded = false
+                                    onQuickAction("track_report")
+                                    onOpenAiChat()
+                                }
+                            )
+
+                            AiCircleActionRow(
+                                icon = Icons.Default.LocationSearching,
+                                iconColor = Color(0xFF4F46E5),
+                                title = civicString(CivicStrings.AI_ACTION_NEARBY),
+                                subtitle = civicString(CivicStrings.AI_ACTION_NEARBY_DESC),
+                                onClick = {
+                                    isExpanded = false
+                                    onQuickAction("find_similar")
+                                    onOpenAiChat()
+                                }
+                            )
+                        }
+
+                        // Full Chat Button
                         Surface(
                             shape = RoundedCornerShape(14.dp),
-                            color = CivicOrangePrimary,
+                            color = primaryColor,
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .clickable {
@@ -276,7 +327,7 @@ fun GlobalFloatingAiButton(
                                         modifier = Modifier.size(16.dp)
                                     )
                                     Text(
-                                        text = civicString(CivicStrings.AI_ACTION_CHAT),
+                                        text = if (platformMode == AppPlatformMode.AI_ROAD_SAFETY) "Ask Road Safety AI" else "Ask CivicFix AI",
                                         fontSize = 12.sp,
                                         fontWeight = FontWeight.Bold,
                                         color = Color.White
@@ -314,11 +365,7 @@ fun GlobalFloatingAiButton(
                         .clip(CircleShape)
                         .background(
                             brush = Brush.linearGradient(
-                                colors = listOf(
-                                    CivicOrangePrimary,
-                                    CivicOrangeDark,
-                                    CivicDarkGray
-                                )
+                                colors = gradientColors
                             )
                         )
                 ) {
@@ -333,8 +380,8 @@ fun GlobalFloatingAiButton(
                     } else {
                         // When shrunk / idle, show AI Sparkle icon with clean white tint
                         Icon(
-                            imageVector = Icons.Default.AutoAwesome,
-                            contentDescription = "CivicFix AI Agent",
+                            imageVector = if (platformMode == AppPlatformMode.AI_ROAD_SAFETY) Icons.Default.Shield else Icons.Default.AutoAwesome,
+                            contentDescription = "AI Agent",
                             tint = Color.White,
                             modifier = Modifier.size(26.dp)
                         )

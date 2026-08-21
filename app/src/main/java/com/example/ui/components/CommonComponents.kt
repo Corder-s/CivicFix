@@ -43,6 +43,7 @@ import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Public
 import androidx.compose.material.icons.filled.Report
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material.icons.filled.SwapHoriz
 import androidx.compose.material.icons.filled.ThumbUp
@@ -96,6 +97,11 @@ import com.example.ui.theme.CivicNavyContainer
 import com.example.ui.theme.CivicNavyDark
 import com.example.ui.theme.CivicNavyLight
 import com.example.ui.theme.CivicNavyPrimary
+import com.example.ui.theme.CivicOrangeBorder
+import com.example.ui.theme.CivicOrangeContainer
+import com.example.ui.theme.CivicOrangeDark
+import com.example.ui.theme.CivicOrangeLight
+import com.example.ui.theme.CivicOrangePrimary
 import com.example.ui.theme.CivicRed
 import com.example.ui.theme.CivicRedContainer
 import com.example.ui.theme.CivicRedText
@@ -115,7 +121,9 @@ import java.util.Locale
 enum class CivicButtonVariant {
     PRIMARY,        // Deep Civic Navy
     PRIMARY_GREEN,  // Forest Civic Green
+    PRIMARY_ORANGE, // Road Safety Vibrant Orange
     SECONDARY,      // Crisp Slate Container
+    SECONDARY_OUTLINE, // Secondary Border Outline
     OUTLINED,       // High-contrast geometric border
     TONAL_GREEN,    // Soft green container with deep green text
     TONAL_AMBER,    // Amber container for Municipal Administration
@@ -164,10 +172,20 @@ fun CivicButton(
             if (enabled) Color.White else CivicSlate400,
             null
         )
+        CivicButtonVariant.PRIMARY_ORANGE -> Triple(
+            if (enabled) CivicOrangePrimary else CivicSlate200,
+            if (enabled) Color.White else CivicSlate400,
+            null
+        )
         CivicButtonVariant.SECONDARY -> Triple(
             if (enabled) CivicSlate100 else CivicSlate100,
             if (enabled) CivicSlate800 else CivicSlate400,
             BorderStroke(1.dp, CivicSlate200)
+        )
+        CivicButtonVariant.SECONDARY_OUTLINE -> Triple(
+            Color.Transparent,
+            if (enabled) CivicSlate800 else CivicSlate400,
+            BorderStroke(1.dp, if (enabled) CivicSlate400 else CivicSlate200)
         )
         CivicButtonVariant.OUTLINED -> Triple(
             Color.Transparent,
@@ -431,8 +449,93 @@ fun IssueCard(
 }
 
 /**
- * Geometric Balance Header Component
- * Implements the rounded-b-3xl #1A237E header with geometric logo, user avatar with green status indicator
+ * Premium Segmented Switcher for "AI Road Safety" (Primary) <-> "CivicFix" (Connected Grievances)
+ */
+@Composable
+fun PlatformModeSwitcher(
+    currentMode: com.example.ui.AppPlatformMode,
+    onModeSelect: (com.example.ui.AppPlatformMode) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        shape = RoundedCornerShape(16.dp),
+        color = Color.White.copy(alpha = 0.12f),
+        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.2f)),
+        modifier = modifier
+            .fillMaxWidth()
+            .testTag("app_platform_mode_switcher")
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(4.dp),
+            horizontalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            // Option 1: 🛡️ AI Road Safety
+            val isSafety = currentMode == com.example.ui.AppPlatformMode.AI_ROAD_SAFETY
+            Surface(
+                shape = RoundedCornerShape(12.dp),
+                color = if (isSafety) CivicOrangePrimary else Color.Transparent,
+                modifier = Modifier
+                    .weight(1f)
+                    .clickable { onModeSelect(com.example.ui.AppPlatformMode.AI_ROAD_SAFETY) }
+                    .testTag("switch_mode_ai_road_safety")
+            ) {
+                Row(
+                    modifier = Modifier.padding(vertical = 8.dp, horizontal = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center
+                ) {
+                    Text(
+                        text = "🛡️",
+                        fontSize = 13.sp
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = "AI Road Safety",
+                        fontSize = 12.sp,
+                        fontWeight = if (isSafety) FontWeight.Bold else FontWeight.Medium,
+                        color = if (isSafety) Color.White else Color.White.copy(alpha = 0.7f),
+                        maxLines = 1
+                    )
+                }
+            }
+
+            // Option 2: 🏙️ CivicFix
+            val isCivic = currentMode == com.example.ui.AppPlatformMode.CIVIC_FIX
+            Surface(
+                shape = RoundedCornerShape(12.dp),
+                color = if (isCivic) CivicOrangePrimary else Color.Transparent,
+                modifier = Modifier
+                    .weight(1f)
+                    .clickable { onModeSelect(com.example.ui.AppPlatformMode.CIVIC_FIX) }
+                    .testTag("switch_mode_civic_fix")
+            ) {
+                Row(
+                    modifier = Modifier.padding(vertical = 8.dp, horizontal = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center
+                ) {
+                    Text(
+                        text = "🏙️",
+                        fontSize = 13.sp
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = "CivicFix",
+                        fontSize = 12.sp,
+                        fontWeight = if (isCivic) FontWeight.Bold else FontWeight.Medium,
+                        color = if (isCivic) Color.White else Color.White.copy(alpha = 0.7f),
+                        maxLines = 1
+                    )
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Geometric Top Navigation Bar with AI Road Safety / CivicFix Mode Switcher
  */
 @Composable
 fun CivicTopBar(
@@ -443,10 +546,12 @@ fun CivicTopBar(
     onAiChatClick: () -> Unit = {},
     selectedLanguage: com.example.data.localization.AppLanguage = com.example.data.localization.AppLanguage.EN,
     onLanguageClick: () -> Unit = {},
-    userName: String? = "Rahul Sharma"
+    userName: String? = "Rahul Sharma",
+    platformMode: com.example.ui.AppPlatformMode = com.example.ui.AppPlatformMode.AI_ROAD_SAFETY,
+    onPlatformModeChange: (com.example.ui.AppPlatformMode) -> Unit = {}
 ) {
     Surface(
-        color = CivicNavyDark, // #1A237E
+        color = CivicNavyDark, // Dark Charcoal #0F172A
         shape = RoundedCornerShape(bottomStart = 24.dp, bottomEnd = 24.dp),
         shadowElevation = 8.dp,
         modifier = Modifier.fillMaxWidth()
@@ -454,7 +559,7 @@ fun CivicTopBar(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(start = 20.dp, end = 20.dp, top = 16.dp, bottom = 20.dp)
+                .padding(start = 18.dp, end = 18.dp, top = 14.dp, bottom = 16.dp)
         ) {
             // Top Row: Geometric Logo + Brand Title + Actions
             Row(
@@ -467,81 +572,59 @@ fun CivicTopBar(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                    // Geometric Square Logo container
                     Surface(
                         shape = RoundedCornerShape(10.dp),
-                        color = Color.White.copy(alpha = 0.2f),
-                        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.35f)),
+                        color = CivicOrangePrimary,
                         modifier = Modifier.size(34.dp)
                     ) {
                         Box(contentAlignment = Alignment.Center) {
-                            Surface(
-                                shape = RoundedCornerShape(3.dp),
-                                color = Color.White,
-                                modifier = Modifier.size(14.dp)
-                            ) {}
+                            Icon(
+                                imageVector = if (platformMode == com.example.ui.AppPlatformMode.AI_ROAD_SAFETY) Icons.Default.Shield else Icons.Default.LocationOn,
+                                contentDescription = null,
+                                tint = Color.White,
+                                modifier = Modifier.size(18.dp)
+                            )
                         }
                     }
 
                     Column {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text(
-                                text = "CivicFix",
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 20.sp,
+                                text = "CivicFix Mobility",
+                                fontWeight = FontWeight.Black,
+                                fontSize = 17.sp,
                                 color = Color.White,
-                                letterSpacing = (-0.5).sp
+                                letterSpacing = (-0.3).sp
                             )
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Surface(
-                                shape = RoundedCornerShape(4.dp),
-                                color = if (currentRole == UserRole.ADMIN) CivicAmber else Color.White.copy(alpha = 0.2f),
-                                border = if (currentRole == UserRole.ADMIN) null else BorderStroke(1.dp, Color.White.copy(alpha = 0.3f))
-                            ) {
-                                Text(
-                                    text = if (currentRole == UserRole.ADMIN) "ADMIN" else "CITIZEN",
-                                    color = Color.White,
-                                    fontSize = 9.sp,
-                                    fontWeight = FontWeight.ExtraBold,
-                                    modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.dp)
-                                )
-                            }
                         }
+                        Text(
+                            text = if (platformMode == com.example.ui.AppPlatformMode.AI_ROAD_SAFETY) "AI Road Safety Engine" else "Civic Redressal Module",
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = CivicOrangeLight
+                        )
                     }
                 }
 
-                // Action controls: Role toggle & Notification Bell
+                // Action controls: Language, Role toggle & Notification Bell
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    // Role Switcher Pill
+                    // Language Chip
                     Surface(
-                        shape = RoundedCornerShape(14.dp),
-                        color = Color.White.copy(alpha = 0.15f),
-                        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.25f)),
-                        modifier = Modifier
-                            .clickable { onToggleRoleClick() }
-                            .testTag("switch_role_button")
+                        shape = RoundedCornerShape(10.dp),
+                        color = Color.White.copy(alpha = 0.12f),
+                        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.2f)),
+                        modifier = Modifier.clickable { onLanguageClick() }
                     ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.padding(horizontal = 9.dp, vertical = 5.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.SwapHoriz,
-                                contentDescription = "Switch Panel",
-                                tint = CivicGreenLight,
-                                modifier = Modifier.size(14.dp)
-                            )
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text(
-                                text = if (currentRole == UserRole.ADMIN) "Citizen Mode" else "Admin Portal",
-                                fontSize = 10.5.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = Color.White
-                            )
-                        }
+                        Text(
+                            text = selectedLanguage.nativeName,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White,
+                            modifier = Modifier.padding(horizontal = 7.dp, vertical = 4.dp)
+                        )
                     }
 
                     // Notification Bell
@@ -549,7 +632,7 @@ fun CivicTopBar(
                         badge = {
                             if (unreadNotifCount > 0) {
                                 Badge(
-                                    containerColor = CivicRed,
+                                    containerColor = CivicOrangePrimary,
                                     contentColor = Color.White,
                                     modifier = Modifier.size(16.dp)
                                 ) {
@@ -577,50 +660,43 @@ fun CivicTopBar(
                         }
                     }
 
-                    // Geometric Avatar with Online Green Dot
-                    Box(modifier = Modifier.size(36.dp)) {
+                    // If currently logged in as Admin, show a subtle officer indicator
+                    if (currentRole == UserRole.ADMIN) {
                         Surface(
-                            shape = CircleShape,
-                            color = Color.White.copy(alpha = 0.18f),
-                            border = BorderStroke(1.5.dp, Color.White.copy(alpha = 0.3f)),
-                            modifier = Modifier.fillMaxWidth()
+                            shape = RoundedCornerShape(10.dp),
+                            color = CivicAmber.copy(alpha = 0.25f),
+                            border = BorderStroke(1.dp, CivicAmber),
+                            modifier = Modifier.clickable { onToggleRoleClick() }
                         ) {
-                            Box(contentAlignment = Alignment.Center) {
-                                val initials = userName?.split(" ")?.take(2)?.mapNotNull { it.firstOrNull() }?.joinToString("") ?: "RS"
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.padding(horizontal = 7.dp, vertical = 4.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.AdminPanelSettings,
+                                    contentDescription = null,
+                                    tint = CivicAmber,
+                                    modifier = Modifier.size(13.dp)
+                                )
+                                Spacer(modifier = Modifier.width(3.dp))
                                 Text(
-                                    text = initials,
-                                    fontSize = 12.sp,
+                                    text = "Officer Mode",
+                                    fontSize = 10.sp,
                                     fontWeight = FontWeight.Bold,
-                                    color = Color.White
+                                    color = CivicAmber
                                 )
                             }
                         }
-                        // Green Online Indicator Dot
-                        Box(
-                            modifier = Modifier
-                                .size(10.dp)
-                                .align(Alignment.TopEnd)
-                                .background(CivicGreenLight, CircleShape)
-                                .border(1.5.dp, CivicNavyDark, CircleShape)
-                        )
                     }
                 }
             }
 
-            Spacer(modifier = Modifier.height(14.dp))
-
-            // Welcome Subtitle
-            Column {
-                Text(
-                    text = "Welcome back,",
-                    fontSize = 12.sp,
-                    color = Color.White.copy(alpha = 0.7f)
-                )
-                Text(
-                    text = userName ?: if (currentRole == UserRole.ADMIN) "Priya Verma (Zonal Officer)" else "Rahul Sharma",
-                    fontSize = 19.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color.White
+            // APP SWITCHER SEGMENTED CONTROL (prominently near top)
+            if (currentRole == UserRole.CITIZEN) {
+                Spacer(modifier = Modifier.height(12.dp))
+                PlatformModeSwitcher(
+                    currentMode = platformMode,
+                    onModeSelect = onPlatformModeChange
                 )
             }
         }

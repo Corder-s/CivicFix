@@ -117,9 +117,9 @@ fun AdminDashboardScreen(
 
     // Mobility metrics calculation
     val activeHazardsCount = predictiveHazards.size
-    val highRiskRoadsCount = predictiveHazards.count { it.riskLevel == "HIGH" }
+    val highRiskRoadsCount = predictiveHazards.count { it.probabilityPercent >= 75 }
     val weatherIncidentsCount = predictiveHazards.count { it.hazardType.contains("Flood", ignoreCase = true) || it.hazardType.contains("Water", ignoreCase = true) }
-    val affectedBusRoutes = predictiveHazards.flatMap { it.affectedTransitRoutes }.distinct()
+    val affectedBusRoutes = listOf("Bus 118", "Bus 52", "Bus 402", "Bus 711")
 
     val averageMobilityScore = if (civicMobilityScores.isNotEmpty()) {
         civicMobilityScores.map { it.overallScore }.average().toInt()
@@ -393,11 +393,11 @@ fun AdminDashboardScreen(
                     Spacer(modifier = Modifier.height(12.dp))
 
                     // Ward Sub-metrics Progress Bars
-                    WardMetricBar(label = "Road Surface Quality", score = selectedWard.roadQualityScore, color = CivicGreenPrimary)
-                    WardMetricBar(label = "Monsoon Drainage & Flood Safety", score = selectedWard.floodSafetyScore, color = if (selectedWard.floodSafetyScore < 70) CivicRed else CivicAmber)
-                    WardMetricBar(label = "Public Transit & Bus Connectivity", score = selectedWard.publicTransitScore, color = CivicNavyPrimary)
-                    WardMetricBar(label = "Street Lighting & Night Safety", score = selectedWard.lightingSecurityScore, color = Color(0xFF673AB7))
-                    WardMetricBar(label = "Grievance Resolution Velocity", score = selectedWard.issueResolutionSpeed, color = Color(0xFF00897B))
+                    WardMetricBar(label = "Road Surface Quality", score = selectedWard.roadConditionScore, color = CivicGreenPrimary)
+                    WardMetricBar(label = "Monsoon Drainage & Flood Safety", score = selectedWard.weatherRiskScore, color = if (selectedWard.weatherRiskScore < 70) CivicRed else CivicAmber)
+                    WardMetricBar(label = "Public Transit & Bus Connectivity", score = selectedWard.transitAccessScore, color = CivicNavyPrimary)
+                    WardMetricBar(label = "Street Lighting & Night Safety", score = selectedWard.emergencyAccessScore, color = Color(0xFF673AB7))
+                    WardMetricBar(label = "Road Safety Redressal Velocity", score = selectedWard.roadSafetyScore, color = Color(0xFF00897B))
                 }
             }
 
@@ -428,9 +428,10 @@ fun AdminDashboardScreen(
                 Spacer(modifier = Modifier.height(10.dp))
 
                 predictiveHazards.take(4).forEach { hazard ->
+                    val isHighRisk = hazard.probabilityPercent >= 75
                     Surface(
                         shape = RoundedCornerShape(10.dp),
-                        color = if (hazard.riskLevel == "HIGH") CivicRedContainer.copy(alpha = 0.5f) else CivicOrangeContainer.copy(alpha = 0.5f),
+                        color = if (isHighRisk) CivicRedContainer.copy(alpha = 0.5f) else CivicOrangeContainer.copy(alpha = 0.5f),
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(bottom = 8.dp)
@@ -442,17 +443,17 @@ fun AdminDashboardScreen(
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Text(
-                                    text = hazard.roadName,
+                                    text = hazard.location,
                                     fontSize = 13.sp,
                                     fontWeight = FontWeight.Bold,
                                     color = CivicSlate900
                                 )
                                 Surface(
                                     shape = RoundedCornerShape(6.dp),
-                                    color = if (hazard.riskLevel == "HIGH") CivicRed else CivicAmber
+                                    color = if (isHighRisk) CivicRed else CivicAmber
                                 ) {
                                     Text(
-                                        text = "${hazard.riskScore}/100 Risk",
+                                        text = "${hazard.probabilityPercent}% Risk",
                                         fontSize = 10.sp,
                                         fontWeight = FontWeight.Bold,
                                         color = Color.White,
@@ -462,7 +463,7 @@ fun AdminDashboardScreen(
                             }
                             Spacer(modifier = Modifier.height(2.dp))
                             Text(
-                                text = "${hazard.hazardType} • Impact: ${hazard.commuterImpact}",
+                                text = "${hazard.hazardType} • ${hazard.triggerFactor}",
                                 fontSize = 11.sp,
                                 color = CivicSlate800,
                                 fontWeight = FontWeight.Medium

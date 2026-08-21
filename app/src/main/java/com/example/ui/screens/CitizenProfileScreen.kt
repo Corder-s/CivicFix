@@ -21,23 +21,31 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForwardIos
 import androidx.compose.material.icons.automirrored.filled.Chat
 import androidx.compose.material.icons.automirrored.filled.HelpOutline
 import androidx.compose.material.icons.automirrored.filled.Logout
+import androidx.compose.material.icons.filled.AccessibilityNew
 import androidx.compose.material.icons.filled.AdminPanelSettings
 import androidx.compose.material.icons.filled.Assignment
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.CleanHands
 import androidx.compose.material.icons.filled.DarkMode
+import androidx.compose.material.icons.filled.DeleteSweep
+import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.EmojiEvents
+import androidx.compose.material.icons.filled.Fingerprint
+import androidx.compose.material.icons.filled.FormatSize
 import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Phone
 import androidx.compose.material.icons.filled.Policy
@@ -67,6 +75,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -81,19 +90,27 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.localization.AppLanguage
 import com.example.data.models.CivicIssue
 import com.example.data.models.User
+import com.example.ui.AccessibilitySettings
+import com.example.ui.AppLockSettings
 import com.example.ui.AppThemeMode
+import com.example.ui.CivicFixViewModel
 import com.example.ui.NotificationSettings
+import com.example.ui.PrivacySettings
+import com.example.ui.TextScaleOption
 import com.example.ui.components.CivicStatusBadge
 import com.example.ui.components.HelpAndFeedbackDialog
 import com.example.ui.components.LanguageSelectionDialog
 import com.example.ui.components.LogoutConfirmationDialog
 import com.example.ui.theme.CivicAmber
 import com.example.ui.theme.CivicDarkGray
+import com.example.ui.theme.CivicGreenPrimary
 import com.example.ui.theme.CivicOrangeDark
 import com.example.ui.theme.CivicOrangeLight
 import com.example.ui.theme.CivicOrangePrimary
@@ -109,38 +126,41 @@ import kotlinx.coroutines.launch
 
 /**
  * WhatsApp / Instagram Style Profile & Settings Screen
- * All settings, civic records, language switcher, and account options arranged in clean list formats.
+ * All settings, civic records, language switcher, appearance, accessibility, privacy, app lock, and account options arranged in clean list formats.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CitizenProfileScreen(
+    viewModel: CivicFixViewModel,
     user: User?,
     userIssues: List<CivicIssue>,
-    selectedLanguage: AppLanguage,
-    currentThemeMode: AppThemeMode,
-    notificationSettings: NotificationSettings,
-    onUpdateProfile: (name: String, email: String, phone: String) -> Unit,
-    onChangePassword: (oldPass: String, newPass: String) -> Boolean,
-    onUpdateNotifications: (NotificationSettings) -> Unit,
-    onSelectLanguage: (AppLanguage) -> Unit,
-    onSelectThemeMode: (AppThemeMode) -> Unit,
-    onSubmitFeedback: (type: String, subject: String, message: String, rating: Int) -> Unit,
     onSelectIssue: (String) -> Unit,
     onSwitchToAdmin: () -> Unit,
-    onLogout: () -> Unit,
-    onShowToast: (String) -> Unit
+    onLogout: () -> Unit
 ) {
+    val selectedLanguage by viewModel.selectedLanguage.collectAsState()
+    val currentThemeMode by viewModel.themeMode.collectAsState()
+    val notificationSettings by viewModel.notificationSettings.collectAsState()
+    val textScale by viewModel.textScale.collectAsState()
+    val accessibilitySettings by viewModel.accessibilitySettings.collectAsState()
+    val privacySettings by viewModel.privacySettings.collectAsState()
+    val appLockSettings by viewModel.appLockSettings.collectAsState()
+
     var showEditProfileDialog by remember { mutableStateOf(false) }
     var showChangePhoneDialog by remember { mutableStateOf(false) }
     var showChangeEmailDialog by remember { mutableStateOf(false) }
     var showPasswordDialog by remember { mutableStateOf(false) }
     var showLanguageDialog by remember { mutableStateOf(false) }
     var showThemeDialog by remember { mutableStateOf(false) }
+    var showTextSizeDialog by remember { mutableStateOf(false) }
+    var showNotificationsDialog by remember { mutableStateOf(false) }
+    var showAccessibilityDialog by remember { mutableStateOf(false) }
+    var showPrivacyDialog by remember { mutableStateOf(false) }
+    var showAppLockDialog by remember { mutableStateOf(false) }
     var showHelpDialog by remember { mutableStateOf(false) }
     var helpDialogInitialTab by remember { mutableIntStateOf(0) }
     var showLogoutModal by remember { mutableStateOf(false) }
     var showMyIssuesSheet by remember { mutableStateOf(false) }
-    var showPrivacyDialog by remember { mutableStateOf(false) }
     var isLoggingOut by remember { mutableStateOf(false) }
     val coroutineScope = rememberCoroutineScope()
 
@@ -194,11 +214,10 @@ fun CitizenProfileScreen(
                 Button(
                     onClick = {
                         if (editName.isNotBlank()) {
-                            onUpdateProfile(editName, editEmail, editPhone)
+                            viewModel.updateUserProfile(editName, editEmail, editPhone)
                             showEditProfileDialog = false
-                            onShowToast("Profile details updated successfully")
                         } else {
-                            onShowToast("Name cannot be empty")
+                            viewModel.showToast("Name cannot be empty")
                         }
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = CivicOrangePrimary),
@@ -248,6 +267,7 @@ fun CitizenProfileScreen(
                         label = { Text("Mobile Number") },
                         leadingIcon = { Icon(Icons.Default.Phone, contentDescription = null, tint = CivicOrangePrimary) },
                         singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
                         shape = RoundedCornerShape(12.dp),
                         modifier = Modifier.fillMaxWidth()
                     )
@@ -260,9 +280,8 @@ fun CitizenProfileScreen(
                 Button(
                     onClick = {
                         if (newPhone.trim().length >= 10) {
-                            onUpdateProfile(user?.name ?: "Rahul Sharma", user?.email ?: "citizen@example.com", newPhone.trim())
+                            viewModel.updateUserProfile(user?.name ?: "Rahul Sharma", user?.email ?: "citizen@example.com", newPhone.trim())
                             showChangePhoneDialog = false
-                            onShowToast("Mobile number updated to $newPhone")
                         } else {
                             phoneError = "Please enter a valid mobile number."
                         }
@@ -314,6 +333,7 @@ fun CitizenProfileScreen(
                         label = { Text("Email Address") },
                         leadingIcon = { Icon(Icons.Default.Email, contentDescription = null, tint = CivicOrangePrimary) },
                         singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
                         shape = RoundedCornerShape(12.dp),
                         modifier = Modifier.fillMaxWidth()
                     )
@@ -327,9 +347,8 @@ fun CitizenProfileScreen(
                     onClick = {
                         val trimmed = newEmail.trim()
                         if (trimmed.contains("@") && trimmed.contains(".")) {
-                            onUpdateProfile(user?.name ?: "Rahul Sharma", trimmed, user?.phone ?: "+91 98765 43210")
+                            viewModel.updateUserProfile(user?.name ?: "Rahul Sharma", trimmed, user?.phone ?: "+91 98765 43210")
                             showChangeEmailDialog = false
-                            onShowToast("Account email updated successfully")
                         } else {
                             emailError = "Please enter a valid email address."
                         }
@@ -377,6 +396,7 @@ fun CitizenProfileScreen(
                         },
                         label = { Text("Current Password") },
                         singleLine = true,
+                        visualTransformation = PasswordVisualTransformation(),
                         shape = RoundedCornerShape(12.dp),
                         modifier = Modifier.fillMaxWidth()
                     )
@@ -388,6 +408,7 @@ fun CitizenProfileScreen(
                         },
                         label = { Text("New Password (min 6 chars)") },
                         singleLine = true,
+                        visualTransformation = PasswordVisualTransformation(),
                         shape = RoundedCornerShape(12.dp),
                         modifier = Modifier.fillMaxWidth()
                     )
@@ -399,6 +420,7 @@ fun CitizenProfileScreen(
                         },
                         label = { Text("Confirm New Password") },
                         singleLine = true,
+                        visualTransformation = PasswordVisualTransformation(),
                         shape = RoundedCornerShape(12.dp),
                         modifier = Modifier.fillMaxWidth()
                     )
@@ -423,10 +445,9 @@ fun CitizenProfileScreen(
                         } else if (newPass != confirmPass) {
                             passError = "New passwords do not match."
                         } else {
-                            val success = onChangePassword(currentPass, newPass)
+                            val success = viewModel.changePassword(currentPass, newPass)
                             if (success) {
                                 showPasswordDialog = false
-                                onShowToast("Password updated successfully")
                             } else {
                                 passError = "Current password was incorrect."
                             }
@@ -449,28 +470,556 @@ fun CitizenProfileScreen(
         )
     }
 
-    // 5. Language Selector Dialog (Shifted directly into settings/profile)
+    // 5. Appearance / Theme Mode Dialog
+    if (showThemeDialog) {
+        AlertDialog(
+            onDismissRequest = { showThemeDialog = false },
+            title = {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.Palette, contentDescription = null, tint = CivicOrangePrimary, modifier = Modifier.size(22.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("App Appearance", fontWeight = FontWeight.Bold)
+                }
+            },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    AppThemeMode.entries.forEach { mode ->
+                        Surface(
+                            shape = RoundedCornerShape(12.dp),
+                            color = if (currentThemeMode == mode) CivicOrangeLight else CivicSlate100,
+                            border = BorderStroke(1.dp, if (currentThemeMode == mode) CivicOrangePrimary else CivicSlate200),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    viewModel.setThemeMode(mode)
+                                    showThemeDialog = false
+                                }
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                RadioButton(
+                                    selected = currentThemeMode == mode,
+                                    onClick = {
+                                        viewModel.setThemeMode(mode)
+                                        showThemeDialog = false
+                                    },
+                                    colors = RadioButtonDefaults.colors(selectedColor = CivicOrangePrimary)
+                                )
+                                Spacer(modifier = Modifier.width(10.dp))
+                                Column {
+                                    Text(
+                                        text = mode.displayName,
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 14.sp,
+                                        color = CivicDarkGray
+                                    )
+                                    Text(
+                                        text = when(mode) {
+                                            AppThemeMode.SYSTEM -> "Match device system theme automatically"
+                                            AppThemeMode.LIGHT -> "High contrast clean daytime interface"
+                                            AppThemeMode.DARK -> "Dimmed battery-efficient dark palette"
+                                        },
+                                        fontSize = 11.sp,
+                                        color = CivicSlate600
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showThemeDialog = false }) {
+                    Text("Close", color = CivicOrangePrimary, fontWeight = FontWeight.Bold)
+                }
+            }
+        )
+    }
+
+    // 6. Text Size / Font Scale Dialog
+    if (showTextSizeDialog) {
+        AlertDialog(
+            onDismissRequest = { showTextSizeDialog = false },
+            title = {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.FormatSize, contentDescription = null, tint = Color(0xFF2563EB), modifier = Modifier.size(22.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Text Size & Scaling", fontWeight = FontWeight.Bold)
+                }
+            },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        text = "Adjust reading typography scale across all transit schedules and civic feeds.",
+                        fontSize = 12.sp,
+                        color = CivicSlate600
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    TextScaleOption.entries.forEach { option ->
+                        Surface(
+                            shape = RoundedCornerShape(12.dp),
+                            color = if (textScale == option) Color(0xFFEFF6FF) else CivicSlate100,
+                            border = BorderStroke(1.dp, if (textScale == option) Color(0xFF2563EB) else CivicSlate200),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    viewModel.setTextScale(option)
+                                    showTextSizeDialog = false
+                                }
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                RadioButton(
+                                    selected = textScale == option,
+                                    onClick = {
+                                        viewModel.setTextScale(option)
+                                        showTextSizeDialog = false
+                                    },
+                                    colors = RadioButtonDefaults.colors(selectedColor = Color(0xFF2563EB))
+                                )
+                                Spacer(modifier = Modifier.width(10.dp))
+                                Column {
+                                    Text(
+                                        text = option.displayName,
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = (14 * option.scaleMultiplier).sp,
+                                        color = CivicDarkGray
+                                    )
+                                    Text(
+                                        text = "Sample: Connaught Place • Route 52",
+                                        fontSize = (11 * option.scaleMultiplier).sp,
+                                        color = CivicSlate600
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showTextSizeDialog = false }) {
+                    Text("Close", color = Color(0xFF2563EB), fontWeight = FontWeight.Bold)
+                }
+            }
+        )
+    }
+
+    // 7. Granular Notifications Dialog
+    if (showNotificationsDialog) {
+        var localSettings by remember { mutableStateOf(notificationSettings) }
+
+        AlertDialog(
+            onDismissRequest = { showNotificationsDialog = false },
+            title = {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.Notifications, contentDescription = null, tint = CivicAmber, modifier = Modifier.size(22.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Notification Preferences", fontWeight = FontWeight.Bold)
+                }
+            },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("Grievance Status Updates", fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+                            Text("SLA progression & resolution alerts", fontSize = 11.sp, color = CivicSlate400)
+                        }
+                        Switch(
+                            checked = localSettings.issueStatusUpdates,
+                            onCheckedChange = { localSettings = localSettings.copy(issueStatusUpdates = it) }
+                        )
+                    }
+
+                    HorizontalDivider(color = CivicSlate200)
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("Road Safety & Weather Alerts", fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+                            Text("Waterlogging, red alerts, and hazards", fontSize = 11.sp, color = CivicSlate400)
+                        }
+                        Switch(
+                            checked = localSettings.weatherEmergencyAlerts,
+                            onCheckedChange = { localSettings = localSettings.copy(weatherEmergencyAlerts = it) }
+                        )
+                    }
+
+                    HorizontalDivider(color = CivicSlate200)
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("Transit & Bus Disruptions", fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+                            Text("Route detours, delays, and corridor blocks", fontSize = 11.sp, color = CivicSlate400)
+                        }
+                        Switch(
+                            checked = localSettings.transitDisruptions,
+                            onCheckedChange = { localSettings = localSettings.copy(transitDisruptions = it) }
+                        )
+                    }
+
+                    HorizontalDivider(color = CivicSlate200)
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("Community Upvotes & Activity", fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+                            Text("Neighbor confirmations on your reports", fontSize = 11.sp, color = CivicSlate400)
+                        }
+                        Switch(
+                            checked = localSettings.communityActivity,
+                            onCheckedChange = { localSettings = localSettings.copy(communityActivity = it) }
+                        )
+                    }
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        viewModel.updateNotificationSettings(localSettings)
+                        showNotificationsDialog = false
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = CivicOrangePrimary),
+                    shape = RoundedCornerShape(10.dp)
+                ) {
+                    Text("Save Preferences", fontWeight = FontWeight.Bold, color = Color.White)
+                }
+            },
+            dismissButton = {
+                OutlinedButton(
+                    onClick = { showNotificationsDialog = false },
+                    shape = RoundedCornerShape(10.dp)
+                ) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
+
+    // 8. Accessibility Settings Dialog
+    if (showAccessibilityDialog) {
+        var localAccessibility by remember { mutableStateOf(accessibilitySettings) }
+
+        AlertDialog(
+            onDismissRequest = { showAccessibilityDialog = false },
+            title = {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.AccessibilityNew, contentDescription = null, tint = CivicGreenPrimary, modifier = Modifier.size(22.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Accessibility Controls", fontWeight = FontWeight.Bold)
+                }
+            },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("High Contrast UI", fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+                            Text("Enhances border definitions and solid dark text", fontSize = 11.sp, color = CivicSlate400)
+                        }
+                        Switch(
+                            checked = localAccessibility.highContrast,
+                            onCheckedChange = { localAccessibility = localAccessibility.copy(highContrast = it) }
+                        )
+                    }
+
+                    HorizontalDivider(color = CivicSlate200)
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("Reduce Animations", fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+                            Text("Disables smooth transit transitions and banner pulses", fontSize = 11.sp, color = CivicSlate400)
+                        }
+                        Switch(
+                            checked = localAccessibility.reduceMotion,
+                            onCheckedChange = { localAccessibility = localAccessibility.copy(reduceMotion = it) }
+                        )
+                    }
+
+                    HorizontalDivider(color = CivicSlate200)
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("Screen Reader Priority Mode", fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+                            Text("Expands vocal semantic descriptions for TalkBack", fontSize = 11.sp, color = CivicSlate400)
+                        }
+                        Switch(
+                            checked = localAccessibility.screenReaderOptimized,
+                            onCheckedChange = { localAccessibility = localAccessibility.copy(screenReaderOptimized = it) }
+                        )
+                    }
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        viewModel.updateAccessibilitySettings(localAccessibility)
+                        showAccessibilityDialog = false
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = CivicGreenPrimary),
+                    shape = RoundedCornerShape(10.dp)
+                ) {
+                    Text("Apply Settings", fontWeight = FontWeight.Bold, color = Color.White)
+                }
+            },
+            dismissButton = {
+                OutlinedButton(
+                    onClick = { showAccessibilityDialog = false },
+                    shape = RoundedCornerShape(10.dp)
+                ) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
+
+    // 9. Privacy & Permissions Dialog
+    if (showPrivacyDialog) {
+        var localPrivacy by remember { mutableStateOf(privacySettings) }
+
+        AlertDialog(
+            onDismissRequest = { showPrivacyDialog = false },
+            title = {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.PrivacyTip, contentDescription = null, tint = Color(0xFF6366F1), modifier = Modifier.size(22.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Privacy & Device Permissions", fontWeight = FontWeight.Bold)
+                }
+            },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("Precise GPS Location", fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+                            Text("Used for auto-tagging complaint wards & route planner", fontSize = 11.sp, color = CivicSlate400)
+                        }
+                        Switch(
+                            checked = localPrivacy.locationSharing,
+                            onCheckedChange = { localPrivacy = localPrivacy.copy(locationSharing = it) }
+                        )
+                    }
+
+                    HorizontalDivider(color = CivicSlate200)
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("Camera & Photo Uploads", fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+                            Text("Attach evidence photos to municipal grievance tickets", fontSize = 11.sp, color = CivicSlate400)
+                        }
+                        Switch(
+                            checked = localPrivacy.cameraAccess,
+                            onCheckedChange = { localPrivacy = localPrivacy.copy(cameraAccess = it) }
+                        )
+                    }
+
+                    HorizontalDivider(color = CivicSlate200)
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("Anonymous Reporting Mode", fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+                            Text("Hides your name and phone from public feeds", fontSize = 11.sp, color = CivicSlate400)
+                        }
+                        Switch(
+                            checked = localPrivacy.anonymousReporting,
+                            onCheckedChange = { localPrivacy = localPrivacy.copy(anonymousReporting = it) }
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(6.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        OutlinedButton(
+                            onClick = { viewModel.clearAppCache() },
+                            modifier = Modifier.weight(1f),
+                            shape = RoundedCornerShape(10.dp)
+                        ) {
+                            Icon(Icons.Default.DeleteSweep, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("Clear Cache", fontSize = 11.sp)
+                        }
+                        OutlinedButton(
+                            onClick = { viewModel.exportUserData() },
+                            modifier = Modifier.weight(1f),
+                            shape = RoundedCornerShape(10.dp)
+                        ) {
+                            Icon(Icons.Default.Download, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("Export Data", fontSize = 11.sp)
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        viewModel.updatePrivacySettings(localPrivacy)
+                        showPrivacyDialog = false
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF6366F1)),
+                    shape = RoundedCornerShape(10.dp)
+                ) {
+                    Text("Save Privacy", fontWeight = FontWeight.Bold, color = Color.White)
+                }
+            },
+            dismissButton = {
+                OutlinedButton(
+                    onClick = { showPrivacyDialog = false },
+                    shape = RoundedCornerShape(10.dp)
+                ) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
+
+    // 10. App Lock / Biometrics Dialog
+    if (showAppLockDialog) {
+        var isLockOn by remember { mutableStateOf(appLockSettings.isEnabled) }
+        var pinInput by remember { mutableStateOf(appLockSettings.pinCode ?: "") }
+        var pinError by remember { mutableStateOf<String?>(null) }
+
+        AlertDialog(
+            onDismissRequest = { showAppLockDialog = false },
+            title = {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.Fingerprint, contentDescription = null, tint = CivicOrangePrimary, modifier = Modifier.size(22.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("App Lock & Biometrics", fontWeight = FontWeight.Bold)
+                }
+            },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("Enable Screen Lock", fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+                            Text("Require PIN or Fingerprint on app open", fontSize = 11.sp, color = CivicSlate400)
+                        }
+                        Switch(
+                            checked = isLockOn,
+                            onCheckedChange = { isLockOn = it }
+                        )
+                    }
+
+                    if (isLockOn) {
+                        OutlinedTextField(
+                            value = pinInput,
+                            onValueChange = {
+                                if (it.length <= 4 && it.all { char -> char.isDigit() }) {
+                                    pinInput = it
+                                    pinError = null
+                                }
+                            },
+                            label = { Text("Enter 4-digit Security PIN") },
+                            leadingIcon = { Icon(Icons.Default.Lock, contentDescription = null, tint = CivicOrangePrimary) },
+                            singleLine = true,
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
+                            visualTransformation = PasswordVisualTransformation(),
+                            shape = RoundedCornerShape(12.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        pinError?.let {
+                            Text(text = it, color = CivicRed, fontSize = 12.sp)
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        if (isLockOn && pinInput.length < 4) {
+                            pinError = "Please enter a complete 4-digit PIN."
+                        } else {
+                            viewModel.updateAppLock(AppLockSettings(isEnabled = isLockOn, pinCode = if (isLockOn) pinInput else null))
+                            showAppLockDialog = false
+                        }
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = CivicOrangePrimary),
+                    shape = RoundedCornerShape(10.dp)
+                ) {
+                    Text("Save Security", fontWeight = FontWeight.Bold, color = Color.White)
+                }
+            },
+            dismissButton = {
+                OutlinedButton(
+                    onClick = { showAppLockDialog = false },
+                    shape = RoundedCornerShape(10.dp)
+                ) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
+
+    // 11. Language Selector Dialog
     if (showLanguageDialog) {
         LanguageSelectionDialog(
             currentLanguage = selectedLanguage,
             onLanguageSelected = {
-                onSelectLanguage(it)
-                onShowToast("Language set to ${it.englishName}")
+                viewModel.setLanguage(it)
             },
             onDismiss = { showLanguageDialog = false }
         )
     }
 
-    // 6. Help & Feedback Dialog
+    // 12. Help & Feedback Dialog
     if (showHelpDialog) {
         HelpAndFeedbackDialog(
             initialTab = helpDialogInitialTab,
             onDismiss = { showHelpDialog = false },
-            onSubmitFeedback = onSubmitFeedback
+            onSubmitFeedback = { type, subject, message, rating ->
+                viewModel.submitFeedback(type, subject, message, rating)
+            }
         )
     }
 
-    // 7. My Issues Bottom Sheet
+    // 13. My Issues Bottom Sheet
     if (showMyIssuesSheet) {
         ModalBottomSheet(
             onDismissRequest = { showMyIssuesSheet = false },
@@ -561,7 +1110,7 @@ fun CitizenProfileScreen(
         }
     }
 
-    // 8. Logout Confirmation Modal
+    // 14. Logout Confirmation Modal
     if (showLogoutModal) {
         LogoutConfirmationDialog(
             onDismiss = { showLogoutModal = false },
@@ -572,6 +1121,7 @@ fun CitizenProfileScreen(
                     delay(400)
                     isLoggingOut = false
                     showLogoutModal = false
+                    viewModel.logout()
                     onLogout()
                 }
             }
@@ -690,7 +1240,7 @@ fun CitizenProfileScreen(
 
         Spacer(modifier = Modifier.height(18.dp))
 
-        // WhatsApp / Instagram Style List Group: Profile & Account Details
+        // WhatsApp / Instagram Style List Group: Account & Profile Details
         WhatsAppSectionTitle(title = "ACCOUNT & PROFILE")
         WhatsAppCardGroup {
             // 1. Edit Profile
@@ -732,10 +1282,53 @@ fun CitizenProfileScreen(
 
         Spacer(modifier = Modifier.height(18.dp))
 
-        // WhatsApp / Instagram Style List Group: Activity & Preferences
-        WhatsAppSectionTitle(title = "ACTIVITY & PREFERENCES")
+        // WhatsApp / Instagram Style List Group: Appearance & Display
+        WhatsAppSectionTitle(title = "APPEARANCE & DISPLAY")
         WhatsAppCardGroup {
-            // 4. My Reports
+            // 4. App Theme / Appearance
+            WhatsAppListItem(
+                icon = Icons.Default.DarkMode,
+                iconColor = CivicOrangePrimary,
+                title = "Appearance",
+                subtitle = "Switch between Dark, Light, or System default",
+                valueBadge = currentThemeMode.displayName,
+                onClick = { showThemeDialog = true },
+                testTag = "setting_appearance_row"
+            )
+
+            WhatsAppDivider()
+
+            // 5. Text Size / Typography
+            WhatsAppListItem(
+                icon = Icons.Default.FormatSize,
+                iconColor = Color(0xFF2563EB),
+                title = "Text Size",
+                subtitle = "Adjust readable font scale and typography",
+                valueBadge = textScale.displayName,
+                onClick = { showTextSizeDialog = true },
+                testTag = "setting_text_size_row"
+            )
+
+            WhatsAppDivider()
+
+            // 6. App Language
+            WhatsAppListItem(
+                icon = Icons.Default.Language,
+                iconColor = Color(0xFF0284C7),
+                title = "App Language",
+                subtitle = "Select preferred regional dialect",
+                valueBadge = selectedLanguage.englishName,
+                onClick = { showLanguageDialog = true },
+                testTag = "setting_app_language_row"
+            )
+        }
+
+        Spacer(modifier = Modifier.height(18.dp))
+
+        // WhatsApp / Instagram Style List Group: Activity & Notifications
+        WhatsAppSectionTitle(title = "ACTIVITY & NOTIFICATIONS")
+        WhatsAppCardGroup {
+            // 7. My Reports
             WhatsAppListItem(
                 icon = Icons.Default.Assignment,
                 iconColor = CivicOrangePrimary,
@@ -748,63 +1341,61 @@ fun CitizenProfileScreen(
 
             WhatsAppDivider()
 
-            // 5. Notifications
+            // 8. Notifications Preferences
             WhatsAppListItem(
                 icon = Icons.Default.Notifications,
                 iconColor = CivicAmber,
                 title = "Notifications",
-                subtitle = "Resolution updates & official alerts",
-                isToggle = true,
-                toggleState = notificationSettings.issueStatusUpdates,
-                onToggleChange = { checked ->
-                    onUpdateNotifications(
-                        notificationSettings.copy(
-                            issueStatusUpdates = checked,
-                            complaintResolution = checked,
-                            communityActivity = checked,
-                            newAnnouncements = checked
-                        )
-                    )
-                    onShowToast(if (checked) "Push notifications enabled" else "Notifications muted")
-                },
-                testTag = "setting_notifications_toggle"
+                subtitle = "Customize status updates & emergency alerts",
+                valueBadge = if (notificationSettings.issueStatusUpdates) "Enabled" else "Muted",
+                onClick = { showNotificationsDialog = true },
+                testTag = "setting_notifications_row"
             )
 
             WhatsAppDivider()
 
-            // 6. App Language
+            // 9. Accessibility
             WhatsAppListItem(
-                icon = Icons.Default.Language,
-                iconColor = Color(0xFF2563EB),
-                title = "App Language",
-                subtitle = "Select preferred regional dialect",
-                valueBadge = selectedLanguage.englishName,
-                onClick = { showLanguageDialog = true },
-                testTag = "setting_app_language_row"
+                icon = Icons.Default.AccessibilityNew,
+                iconColor = CivicGreenPrimary,
+                title = "Accessibility",
+                subtitle = "High contrast, screen reader & motion controls",
+                onClick = { showAccessibilityDialog = true },
+                testTag = "setting_accessibility_row"
             )
         }
 
         Spacer(modifier = Modifier.height(18.dp))
 
-        // WhatsApp / Instagram Style List Group: Support & Security
-        WhatsAppSectionTitle(title = "SUPPORT & SECURITY")
+        // WhatsApp / Instagram Style List Group: Privacy & Security
+        WhatsAppSectionTitle(title = "PRIVACY & SECURITY")
         WhatsAppCardGroup {
-            // 7. Help & Feedback
+            // 10. Privacy & Permissions
             WhatsAppListItem(
-                icon = Icons.AutoMirrored.Filled.HelpOutline,
-                iconColor = Color(0xFF0284C7),
-                title = "Help & Feedback",
-                subtitle = "FAQs, SLA guide, and direct contact",
-                onClick = {
-                    helpDialogInitialTab = 0
-                    showHelpDialog = true
-                },
-                testTag = "setting_help_feedback_row"
+                icon = Icons.Default.PrivacyTip,
+                iconColor = Color(0xFF6366F1),
+                title = "Privacy & Permissions",
+                subtitle = "GPS location, camera access & data export",
+                onClick = { showPrivacyDialog = true },
+                testTag = "setting_privacy_row"
             )
 
             WhatsAppDivider()
 
-            // 8. Change Password
+            // 11. App Lock & Biometrics
+            WhatsAppListItem(
+                icon = Icons.Default.Fingerprint,
+                iconColor = CivicOrangePrimary,
+                title = "App Lock",
+                subtitle = "Secure access with 4-digit PIN or biometrics",
+                valueBadge = if (appLockSettings.isEnabled) "Locked" else "Off",
+                onClick = { showAppLockDialog = true },
+                testTag = "setting_app_lock_row"
+            )
+
+            WhatsAppDivider()
+
+            // 12. Change Password
             WhatsAppListItem(
                 icon = Icons.Default.Lock,
                 iconColor = CivicDarkGray,
@@ -817,9 +1408,43 @@ fun CitizenProfileScreen(
 
         Spacer(modifier = Modifier.height(18.dp))
 
+        // WhatsApp / Instagram Style List Group: Support & Administration
+        WhatsAppSectionTitle(title = "SUPPORT & ADMINISTRATION")
+        WhatsAppCardGroup {
+            // 13. Help & Feedback
+            WhatsAppListItem(
+                icon = Icons.AutoMirrored.Filled.HelpOutline,
+                iconColor = Color(0xFF0284C7),
+                title = "Help & Feedback",
+                subtitle = "FAQs, SLA resolution times & submit feedback",
+                onClick = {
+                    helpDialogInitialTab = 0
+                    showHelpDialog = true
+                },
+                testTag = "setting_help_feedback_row"
+            )
+
+            WhatsAppDivider()
+
+            // 14. Municipal Admin Switch (Authorized only inside settings)
+            WhatsAppListItem(
+                icon = Icons.Default.AdminPanelSettings,
+                iconColor = CivicAmber,
+                title = "Municipal Admin Access",
+                subtitle = "Switch to Municipal Officer / Triage console",
+                valueBadge = "Officer Console",
+                onClick = {
+                    onSwitchToAdmin()
+                },
+                testTag = "setting_switch_to_admin_row"
+            )
+        }
+
+        Spacer(modifier = Modifier.height(18.dp))
+
         // WhatsApp / Instagram Style List Group: Logout
         WhatsAppCardGroup {
-            // 9. Logout
+            // 15. Logout
             WhatsAppListItem(
                 icon = Icons.AutoMirrored.Filled.Logout,
                 iconColor = CivicRed,

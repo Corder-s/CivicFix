@@ -95,8 +95,7 @@ fun PublicHomeScreen(
     onCategoryClick: (IssueCategory) -> Unit,
     onIssueClick: (String) -> Unit,
     onUpvoteClick: (CivicIssue) -> Unit,
-    onAiHelpClick: () -> Unit = {},
-    onPlanJourneyClick: () -> Unit = {}
+    onAiHelpClick: () -> Unit = {}
 ) {
     val totalCount = issues.size
     val resolvedCount = issues.count { it.status == IssueStatus.RESOLVED }
@@ -198,15 +197,15 @@ fun PublicHomeScreen(
 
         Spacer(modifier = Modifier.height(14.dp))
 
-        // AI Safe Journey Planner Card
+        // CivicFix AI Assistant Triage Card
         Surface(
             shape = RoundedCornerShape(16.dp),
             color = CivicNavyDark,
             shadowElevation = 4.dp,
             modifier = Modifier
                 .fillMaxWidth()
-                .clickable { onPlanJourneyClick() }
-                .testTag("home_journey_planner_card")
+                .clickable { onAiHelpClick() }
+                .testTag("civic_fix_ai_triage_card")
         ) {
             Row(
                 modifier = Modifier
@@ -216,13 +215,13 @@ fun PublicHomeScreen(
             ) {
                 Surface(
                     shape = RoundedCornerShape(12.dp),
-                    color = CivicGreenPrimary,
+                    color = CivicNavyPrimary,
                     modifier = Modifier.size(44.dp)
                 ) {
                     Box(contentAlignment = Alignment.Center) {
                         Icon(
-                            imageVector = Icons.Default.Shield,
-                            contentDescription = "Safe Journey",
+                            imageVector = Icons.Default.AutoAwesome,
+                            contentDescription = "CivicFix AI",
                             tint = Color.White,
                             modifier = Modifier.size(24.dp)
                         )
@@ -234,7 +233,7 @@ fun PublicHomeScreen(
                 Column(modifier = Modifier.weight(1f)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(
-                            text = "PLAN SAFE JOURNEY",
+                            text = "CIVICFIX AI ASSISTANT",
                             fontSize = 13.sp,
                             fontWeight = FontWeight.ExtraBold,
                             color = Color.White,
@@ -246,7 +245,7 @@ fun PublicHomeScreen(
                             color = CivicGreenPrimary
                         ) {
                             Text(
-                                text = "AI",
+                                text = "ONLINE",
                                 fontSize = 9.sp,
                                 fontWeight = FontWeight.ExtraBold,
                                 color = Color.White,
@@ -255,7 +254,7 @@ fun PublicHomeScreen(
                         }
                     }
                     Text(
-                        text = "Real-time hazard-aware transit, bus routes & rain scores",
+                        text = "Instant grievance guidance, ward routing & SLA tracking",
                         fontSize = 11.sp,
                         color = CivicSlate200,
                         lineHeight = 15.sp,
@@ -265,7 +264,7 @@ fun PublicHomeScreen(
 
                 Icon(
                     imageVector = Icons.AutoMirrored.Filled.ArrowForward,
-                    contentDescription = "Open Journey Planner",
+                    contentDescription = "Open CivicFix AI",
                     tint = CivicGreenLight,
                     modifier = Modifier.size(20.dp)
                 )

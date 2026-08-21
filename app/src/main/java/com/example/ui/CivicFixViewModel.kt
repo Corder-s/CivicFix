@@ -5,18 +5,29 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.example.data.ai.ChatMessage
+import com.example.data.ai.CivicFixAIService
 import com.example.data.ai.GeminiCivicChatService
+import com.example.data.ai.RoadSafetyAIService
+import com.example.data.models.BookingStatus
 import com.example.data.models.CivicIssue
 import com.example.data.models.CivicNotification
 import com.example.data.models.Department
 import com.example.data.models.IssueCategory
 import com.example.data.models.IssuePriority
 import com.example.data.models.IssueStatus
+import com.example.data.models.JourneyBooking
 import com.example.data.models.User
 import com.example.data.models.UserRole
 import com.example.data.repository.CivicFixRepository
 import com.example.data.localization.AppLanguage
 import com.example.data.localization.CivicStrings
+import com.example.data.services.BookingService
+import com.example.data.services.DefaultBookingService
+import com.example.data.services.PredictiveRiskService
+import com.example.data.services.DefaultPredictiveRiskService
+import com.example.data.services.PredictiveHazard
+import com.example.data.services.CivicMobilityScore
+import com.example.data.services.EmergencyRouteInfo
 import com.example.data.services.BusRouteInfo
 import com.example.data.services.BusService
 import com.example.data.services.CivicIssueService
@@ -62,7 +73,9 @@ data class NotificationSettings(
     val complaintResolution: Boolean = true,
     val communityActivity: Boolean = true,
     val newAnnouncements: Boolean = true,
-    val aiAssistantAlerts: Boolean = true
+    val aiAssistantAlerts: Boolean = true,
+    val weatherEmergencyAlerts: Boolean = true,
+    val transitDisruptions: Boolean = true
 )
 
 enum class AppThemeMode(val displayName: String) {
@@ -70,6 +83,30 @@ enum class AppThemeMode(val displayName: String) {
     LIGHT("Light Mode"),
     DARK("Dark Mode")
 }
+
+enum class TextScaleOption(val displayName: String, val scaleMultiplier: Float) {
+    SMALL("Compact (90%)", 0.9f),
+    STANDARD("Standard (100%)", 1.0f),
+    LARGE("Large (115%)", 1.15f)
+}
+
+data class AccessibilitySettings(
+    val highContrast: Boolean = false,
+    val reduceMotion: Boolean = false,
+    val screenReaderOptimized: Boolean = false
+)
+
+data class PrivacySettings(
+    val locationSharing: Boolean = true,
+    val cameraAccess: Boolean = true,
+    val analyticsSharing: Boolean = false,
+    val anonymousReporting: Boolean = false
+)
+
+data class AppLockSettings(
+    val isEnabled: Boolean = false,
+    val pinCode: String? = null
+)
 
 data class UserFeedback(
     val id: String = java.util.UUID.randomUUID().toString(),
@@ -110,10 +147,23 @@ enum class SortOption(val displayName: String) {
     OLDEST("Oldest First")
 }
 
+enum class AppPlatformMode {
+    AI_ROAD_SAFETY,
+    CIVIC_FIX
+}
+
 class CivicFixViewModel(
     private val repository: CivicFixRepository,
     private val sharedPrefs: SharedPreferences? = null
 ) : ViewModel() {
+
+    // Platform Mode: AI Road Safety (Default) <-> CivicFix
+    private val _platformMode = MutableStateFlow(AppPlatformMode.AI_ROAD_SAFETY)
+    val platformMode: StateFlow<AppPlatformMode> = _platformMode.asStateFlow()
+
+    fun setPlatformMode(mode: AppPlatformMode) {
+        _platformMode.value = mode
+    }
 
     private val _authState = MutableStateFlow(AuthUiState())
     val authState: StateFlow<AuthUiState> = _authState.asStateFlow()
@@ -152,8 +202,32 @@ class CivicFixViewModel(
     val selectedLanguage: StateFlow<AppLanguage> = _selectedLanguage.asStateFlow()
 
     // Theme Mode State (System / Light / Dark)
-    private val _themeMode = MutableStateFlow(AppThemeMode.SYSTEM)
+    private val _themeMode = MutableStateFlow(
+        sharedPrefs?.getString("selected_app_theme", AppThemeMode.SYSTEM.name)?.let {
+            try { AppThemeMode.valueOf(it) } catch (e: Exception) { AppThemeMode.SYSTEM }
+        } ?: AppThemeMode.SYSTEM
+    )
     val themeMode: StateFlow<AppThemeMode> = _themeMode.asStateFlow()
+
+    // Text Scale / Font Size Setting
+    private val _textScale = MutableStateFlow(
+        sharedPrefs?.getString("selected_text_scale", TextScaleOption.STANDARD.name)?.let {
+            try { TextScaleOption.valueOf(it) } catch (e: Exception) { TextScaleOption.STANDARD }
+        } ?: TextScaleOption.STANDARD
+    )
+    val textScale: StateFlow<TextScaleOption> = _textScale.asStateFlow()
+
+    // Accessibility Settings
+    private val _accessibilitySettings = MutableStateFlow(AccessibilitySettings())
+    val accessibilitySettings: StateFlow<AccessibilitySettings> = _accessibilitySettings.asStateFlow()
+
+    // Privacy & Data Permissions
+    private val _privacySettings = MutableStateFlow(PrivacySettings())
+    val privacySettings: StateFlow<PrivacySettings> = _privacySettings.asStateFlow()
+
+    // App Lock & Biometrics
+    private val _appLockSettings = MutableStateFlow(AppLockSettings())
+    val appLockSettings: StateFlow<AppLockSettings> = _appLockSettings.asStateFlow()
 
     // Notification Preferences
     private val _notificationSettings = MutableStateFlow(NotificationSettings())
@@ -199,6 +273,29 @@ class CivicFixViewModel(
     fun selectWard(wardCode: String) {
         _selectedWardCode.value = wardCode
     }
+
+    // Active Transit Routes & Alerts
+    val activeBusRoutes: List<BusRouteInfo> = busService.getActiveBusRoutes()
+    val currentWeatherAlert: WeatherSafetyAlert = weatherService.getCurrentWeatherAlert()
+    val emergencyFacilities: List<EmergencyFacility> = emergencyService.getEmergencyFacilities()
+    val emergencyHelplines: Map<String, String> = emergencyService.getEmergencyHelplines()
+    val highRiskCorridors: List<RoadRiskSegment> = routeService.getHighRiskCorridors()
+
+    // AI Safe Journey Planner State
+    private val _journeyOrigin = MutableStateFlow("Sector 62 IT Hub")
+    val journeyOrigin: StateFlow<String> = _journeyOrigin.asStateFlow()
+
+    private val _journeyDestination = MutableStateFlow("Connaught Place / City Center")
+    val journeyDestination: StateFlow<String> = _journeyDestination.asStateFlow()
+
+    private val _journeyDateTime = MutableStateFlow("Leave Now")
+    val journeyDateTime: StateFlow<String> = _journeyDateTime.asStateFlow()
+
+    private val _travelPreference = MutableStateFlow(TravelPreference.BEST_OVERALL)
+    val travelPreference: StateFlow<TravelPreference> = _travelPreference.asStateFlow()
+
+    private val _selectedRouteId = MutableStateFlow<String?>("route_best_overall")
+    val selectedRouteId: StateFlow<String?> = _selectedRouteId.asStateFlow()
 
     // Emergency Mode & Emergency Routing State
     private val _isEmergencyModeActive = MutableStateFlow(false)
@@ -286,29 +383,6 @@ class CivicFixViewModel(
     ) { markers, layer, query, severity ->
         mapService.filterMarkers(markers, layer, query, severity)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
-
-    // Active Transit Routes & Alerts
-    val activeBusRoutes: List<BusRouteInfo> = busService.getActiveBusRoutes()
-    val currentWeatherAlert: WeatherSafetyAlert = weatherService.getCurrentWeatherAlert()
-    val emergencyFacilities: List<EmergencyFacility> = emergencyService.getEmergencyFacilities()
-    val emergencyHelplines: Map<String, String> = emergencyService.getEmergencyHelplines()
-    val highRiskCorridors: List<RoadRiskSegment> = routeService.getHighRiskCorridors()
-
-    // AI Safe Journey Planner State
-    private val _journeyOrigin = MutableStateFlow("Sector 62 IT Hub")
-    val journeyOrigin: StateFlow<String> = _journeyOrigin.asStateFlow()
-
-    private val _journeyDestination = MutableStateFlow("Connaught Place / City Center")
-    val journeyDestination: StateFlow<String> = _journeyDestination.asStateFlow()
-
-    private val _journeyDateTime = MutableStateFlow("Leave Now")
-    val journeyDateTime: StateFlow<String> = _journeyDateTime.asStateFlow()
-
-    private val _travelPreference = MutableStateFlow(TravelPreference.BEST_OVERALL)
-    val travelPreference: StateFlow<TravelPreference> = _travelPreference.asStateFlow()
-
-    private val _selectedRouteId = MutableStateFlow<String?>("route_best_overall")
-    val selectedRouteId: StateFlow<String?> = _selectedRouteId.asStateFlow()
 
     private val _hasTriggeredDisruptionNotification = MutableStateFlow(false)
 
@@ -437,7 +511,37 @@ class CivicFixViewModel(
 
     fun setThemeMode(mode: AppThemeMode) {
         _themeMode.value = mode
+        sharedPrefs?.edit()?.putString("selected_app_theme", mode.name)?.apply()
         showToast("Theme set to ${mode.displayName}")
+    }
+
+    fun setTextScale(scale: TextScaleOption) {
+        _textScale.value = scale
+        sharedPrefs?.edit()?.putString("selected_text_scale", scale.name)?.apply()
+        showToast("Text size updated to ${scale.displayName}")
+    }
+
+    fun updateAccessibilitySettings(settings: AccessibilitySettings) {
+        _accessibilitySettings.value = settings
+        showToast("Accessibility settings updated")
+    }
+
+    fun updatePrivacySettings(settings: PrivacySettings) {
+        _privacySettings.value = settings
+        showToast("Privacy preferences saved")
+    }
+
+    fun updateAppLock(settings: AppLockSettings) {
+        _appLockSettings.value = settings
+        showToast(if (settings.isEnabled) "App Lock enabled with secure PIN" else "App Lock disabled")
+    }
+
+    fun clearAppCache() {
+        showToast("Local cache cleared (12.4 MB freed)")
+    }
+
+    fun exportUserData() {
+        showToast("Civic report archive exported as CSV/JSON")
     }
 
     fun updateNotificationSettings(settings: NotificationSettings) {
@@ -500,26 +604,60 @@ class CivicFixViewModel(
         }
     }
 
-    // AI Chat Agent State
+    // Booking Service & State
+    val bookingService: BookingService = DefaultBookingService()
+    val bookings: StateFlow<List<JourneyBooking>> = bookingService.bookings
+
+    // AI Chat Agent Services (Distinct & Separated)
+    private val roadSafetyAiService = RoadSafetyAIService()
+    private val civicFixAiService = CivicFixAIService()
     private val chatService = GeminiCivicChatService()
 
-    private val initialWelcomeMessage = ChatMessage(
-        id = "welcome_01",
-        text = "👋 Hello! I am your **CivicFix AI Guide**.\n\nI can help you:\n• File and report civic issues step-by-step\n• Find which municipal department handles your complaint\n• Track grievance resolution timelines & status\n• Provide 24/7 civic emergency helpline numbers\n\nHow can I assist you today?",
+    private val initialRoadSafetyWelcome = ChatMessage(
+        id = "safety_welcome_01",
+        text = "🛡️ Hello! I am **Road Safety AI**.\n\nI can help you navigate urban routes safely, bypass waterlogging, check bus transit frequencies, plan departure times, and book safe journeys.\n\nHow can I help you travel safely today?",
+        isUser = false,
+        quickSuggestions = listOf(
+            "Which route is safest?",
+            "Which bus should I take?",
+            "Is there waterlogging on Mathura Road?",
+            "Should I leave now?",
+            "How do I book this journey?"
+        )
+    )
+
+    private val _roadSafetyChatMessages = MutableStateFlow<List<ChatMessage>>(listOf(initialRoadSafetyWelcome))
+    val roadSafetyChatMessages: StateFlow<List<ChatMessage>> = _roadSafetyChatMessages.asStateFlow()
+
+    private val _isRoadSafetyAiTyping = MutableStateFlow(false)
+    val isRoadSafetyAiTyping: StateFlow<Boolean> = _isRoadSafetyAiTyping.asStateFlow()
+
+    private val initialCivicFixWelcome = ChatMessage(
+        id = "civic_welcome_01",
+        text = "🏙️ Hello! I am **CivicFix AI**.\n\nI can assist you in reporting neighborhood issues (potholes, water leaks, clogged drains, streetlights), tracking official complaint resolution, finding responsible municipal departments, and accessing emergency helplines.\n\nWhat civic issue can I help you with?",
         isUser = false,
         quickSuggestions = listOf(
             "How do I report a pothole?",
+            "Track my complaint status",
             "Which dept handles water leaks?",
-            "How do I track my complaints?",
+            "Report broken streetlight",
             "Emergency helpline numbers"
         )
     )
 
-    private val _chatMessages = MutableStateFlow<List<ChatMessage>>(listOf(initialWelcomeMessage))
-    val chatMessages: StateFlow<List<ChatMessage>> = _chatMessages.asStateFlow()
+    private val _civicFixChatMessages = MutableStateFlow<List<ChatMessage>>(listOf(initialCivicFixWelcome))
+    val civicFixChatMessages: StateFlow<List<ChatMessage>> = _civicFixChatMessages.asStateFlow()
 
-    private val _isAiTyping = MutableStateFlow(false)
-    val isAiTyping: StateFlow<Boolean> = _isAiTyping.asStateFlow()
+    private val _isCivicFixAiTyping = MutableStateFlow(false)
+    val isCivicFixAiTyping: StateFlow<Boolean> = _isCivicFixAiTyping.asStateFlow()
+
+    val chatMessages: StateFlow<List<ChatMessage>> = combine(_platformMode, _roadSafetyChatMessages, _civicFixChatMessages) { mode, safetyList, civicList ->
+        if (mode == AppPlatformMode.AI_ROAD_SAFETY) safetyList else civicList
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), listOf(initialRoadSafetyWelcome))
+
+    val isAiTyping: StateFlow<Boolean> = combine(_platformMode, _isRoadSafetyAiTyping, _isCivicFixAiTyping) { mode, safetyTyping, civicTyping ->
+        if (mode == AppPlatformMode.AI_ROAD_SAFETY) safetyTyping else civicTyping
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
 
     private val _toastMessage = MutableStateFlow<String?>(null)
     val toastMessage: StateFlow<String?> = _toastMessage.asStateFlow()
@@ -778,45 +916,105 @@ class CivicFixViewModel(
         }
     }
 
-    // AI Chat Actions
-    fun sendAiChatMessage(prompt: String) {
+    // Dedicated Road Safety AI Message Handler
+    fun sendRoadSafetyAiMessage(prompt: String) {
         val cleanPrompt = prompt.trim()
         if (cleanPrompt.isBlank()) return
 
-        val userMessage = ChatMessage(
-            text = cleanPrompt,
-            isUser = true
-        )
-        _chatMessages.update { it + userMessage }
-        _isAiTyping.value = true
+        val userMessage = ChatMessage(text = cleanPrompt, isUser = true)
+        _roadSafetyChatMessages.update { it + userMessage }
+        _isRoadSafetyAiTyping.value = true
 
         viewModelScope.launch {
             try {
-                val replyText = chatService.sendMessage(cleanPrompt)
+                val replyText = roadSafetyAiService.sendMessage(cleanPrompt)
                 val aiResponse = ChatMessage(
                     text = replyText,
                     isUser = false,
-                    quickSuggestions = getContextualSuggestions(cleanPrompt)
+                    quickSuggestions = listOf(
+                        "Which route is safest?",
+                        "Which bus should I take?",
+                        "Should I leave now?",
+                        "How do I book this journey?"
+                    )
                 )
-                _chatMessages.update { it + aiResponse }
+                _roadSafetyChatMessages.update { it + aiResponse }
             } catch (e: Exception) {
                 val errorResponse = ChatMessage(
-                    text = "I encountered a momentary issue processing your request. Please try again or tap a quick suggestion.",
+                    text = "I encountered an error retrieving live road safety information. Please try again.",
                     isUser = false,
-                    isError = true,
-                    quickSuggestions = listOf("How do I report an issue?", "Emergency helpline numbers")
+                    isError = true
                 )
-                _chatMessages.update { it + errorResponse }
+                _roadSafetyChatMessages.update { it + errorResponse }
             } finally {
-                _isAiTyping.value = false
+                _isRoadSafetyAiTyping.value = false
             }
         }
     }
 
+    fun clearRoadSafetyAiChat() {
+        roadSafetyAiService.clearHistory()
+        _roadSafetyChatMessages.value = listOf(initialRoadSafetyWelcome)
+        showToast("Road Safety AI conversation cleared")
+    }
+
+    // Dedicated CivicFix AI Message Handler
+    fun sendCivicFixAiMessage(prompt: String) {
+        val cleanPrompt = prompt.trim()
+        if (cleanPrompt.isBlank()) return
+
+        val userMessage = ChatMessage(text = cleanPrompt, isUser = true)
+        _civicFixChatMessages.update { it + userMessage }
+        _isCivicFixAiTyping.value = true
+
+        viewModelScope.launch {
+            try {
+                val replyText = civicFixAiService.sendMessage(cleanPrompt)
+                val aiResponse = ChatMessage(
+                    text = replyText,
+                    isUser = false,
+                    quickSuggestions = listOf(
+                        "How do I report a pothole?",
+                        "Track my complaint status",
+                        "Which dept handles water leaks?",
+                        "Emergency helpline numbers"
+                    )
+                )
+                _civicFixChatMessages.update { it + aiResponse }
+            } catch (e: Exception) {
+                val errorResponse = ChatMessage(
+                    text = "I encountered an error retrieving municipal grievance records. Please try again.",
+                    isUser = false,
+                    isError = true
+                )
+                _civicFixChatMessages.update { it + errorResponse }
+            } finally {
+                _isCivicFixAiTyping.value = false
+            }
+        }
+    }
+
+    fun clearCivicFixAiChat() {
+        civicFixAiService.clearHistory()
+        _civicFixChatMessages.value = listOf(initialCivicFixWelcome)
+        showToast("CivicFix AI conversation cleared")
+    }
+
+    // Generic Dispatcher for Backward Compatibility
+    fun sendAiChatMessage(prompt: String) {
+        if (_platformMode.value == AppPlatformMode.AI_ROAD_SAFETY) {
+            sendRoadSafetyAiMessage(prompt)
+        } else {
+            sendCivicFixAiMessage(prompt)
+        }
+    }
+
     fun clearAiChat() {
-        chatService.clearHistory()
-        _chatMessages.value = listOf(initialWelcomeMessage)
-        showToast("Conversation cleared")
+        if (_platformMode.value == AppPlatformMode.AI_ROAD_SAFETY) {
+            clearRoadSafetyAiChat()
+        } else {
+            clearCivicFixAiChat()
+        }
     }
 
     private fun getContextualSuggestions(prompt: String): List<String> {

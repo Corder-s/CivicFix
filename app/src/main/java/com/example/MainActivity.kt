@@ -28,10 +28,12 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AdminPanelSettings
+import androidx.compose.material.icons.filled.AltRoute
 import androidx.compose.material.icons.filled.AssignmentTurnedIn
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Dashboard
 import androidx.compose.material.icons.filled.Description
+import androidx.compose.material.icons.filled.Directions
 import androidx.compose.material.icons.filled.Explore
 import androidx.compose.material.icons.filled.Group
 import androidx.compose.material.icons.filled.Home
@@ -41,6 +43,7 @@ import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Report
 import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material.icons.filled.SwapHoriz
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.FloatingActionButton
@@ -88,9 +91,11 @@ import com.example.data.localization.LocalCivicLanguage
 import com.example.data.localization.civicString
 import com.example.data.models.UserRole
 import com.example.data.repository.CivicFixRepository
+import com.example.ui.AppPlatformMode
 import com.example.ui.CivicFixViewModel
 import com.example.ui.CivicFixViewModelFactory
 import com.example.ui.components.CivicTopBar
+import com.example.ui.components.EmergencySosModal
 import com.example.ui.components.GlobalFloatingAiButton
 import com.example.ui.components.LanguageSelectionDialog
 import com.example.ui.screens.AdminDashboardScreen
@@ -98,6 +103,7 @@ import com.example.ui.screens.AdminIssueManagementScreen
 import com.example.ui.screens.AdminLoginScreen
 import com.example.ui.screens.AdminUserManagementScreen
 import com.example.ui.screens.AiChatAssistantScreen
+import com.example.ui.screens.AiRoadSafetyHomeScreen
 import com.example.ui.screens.CitizenDashboardScreen
 import com.example.ui.screens.CitizenProfileScreen
 import com.example.ui.screens.CivicLiveMapScreen
@@ -111,6 +117,10 @@ import com.example.ui.screens.PublicHomeScreen
 import com.example.ui.screens.RegisterScreen
 import com.example.ui.screens.ReportIssueScreen
 import com.example.ui.screens.SafeJourneyPlannerScreen
+import com.example.ui.screens.RoadSafetyAiChatScreen
+import com.example.ui.screens.CivicFixAiChatScreen
+import com.example.ui.screens.BookJourneyScreen
+import com.example.ui.screens.MyBookingsScreen
 import com.example.ui.theme.CivicAmber
 import com.example.ui.theme.CivicFixTheme
 import com.example.ui.theme.CivicGreenDark
@@ -122,7 +132,11 @@ import com.example.ui.theme.CivicNavyLight
 import com.example.ui.theme.CivicNavyPrimary
 import com.example.ui.theme.CivicOrangeContainer
 import com.example.ui.theme.CivicOrangeDark
+import com.example.ui.theme.CivicOrangeLight
 import com.example.ui.theme.CivicOrangePrimary
+import com.example.ui.theme.CivicRed
+import com.example.ui.theme.CivicRedContainer
+import com.example.ui.theme.CivicRedDark
 import com.example.ui.theme.CivicSlate100
 import com.example.ui.theme.CivicSlate200
 import com.example.ui.theme.CivicSlate400
@@ -159,6 +173,7 @@ fun CivicFixApp(viewModel: CivicFixViewModel) {
     val issues by viewModel.issues.collectAsState()
     val currentUser by viewModel.currentUser.collectAsState()
     val currentRole by viewModel.currentRole.collectAsState()
+    val platformMode by viewModel.platformMode.collectAsState()
     val allUsers by viewModel.allUsers.collectAsState()
     val notifications by viewModel.notifications.collectAsState()
     val filterState by viewModel.filterState.collectAsState()
@@ -169,12 +184,13 @@ fun CivicFixApp(viewModel: CivicFixViewModel) {
     val civicMobilityScores by viewModel.civicMobilityScores.collectAsState()
 
     var showLanguageModal by remember { mutableStateOf(false) }
+    var showEmergencySos by remember { mutableStateOf(false) }
 
     val navBackStackEntry by navController.currentBackStackEntryAsState()
-    val currentRoute = navBackStackEntry?.destination?.route ?: "public_home"
+    val currentRoute = navBackStackEntry?.destination?.route ?: if (platformMode == AppPlatformMode.AI_ROAD_SAFETY) "safety_home" else "public_home"
 
     val isAuthScreen = currentRoute in listOf("login", "register", "forgot_password", "admin_login")
-    val isDetailScreen = currentRoute.startsWith("issue_detail") || currentRoute == "ai_chat" || currentRoute == "plan_journey"
+    val isDetailScreen = currentRoute.startsWith("issue_detail") || currentRoute == "ai_chat" || currentRoute == "road_safety_ai_chat" || currentRoute == "civic_fix_ai_chat" || currentRoute == "plan_journey" || currentRoute == "book_journey" || currentRoute == "my_bookings"
 
     val unreadNotifCount = notifications.count { !it.isRead }
 
@@ -242,110 +258,202 @@ fun CivicFixApp(viewModel: CivicFixViewModel) {
                     Spacer(modifier = Modifier.height(8.dp))
 
                     if (currentRole == UserRole.CITIZEN) {
-                        NavigationRailItem(
-                            selected = currentRoute == "public_home",
-                            onClick = { navigateToTab("public_home") },
-                            icon = { Icon(Icons.Default.Home, contentDescription = "Home") },
-                            label = { Text(civicString(CivicStrings.HOME), fontSize = 11.sp) },
-                            colors = NavigationRailItemDefaults.colors(
-                                selectedIconColor = CivicNavyDark,
-                                selectedTextColor = Color.White,
-                                unselectedIconColor = Color.White.copy(alpha = 0.7f),
-                                unselectedTextColor = Color.White.copy(alpha = 0.7f),
-                                indicatorColor = CivicGreenLight
-                            ),
-                            modifier = Modifier.testTag("rail_tab_home")
-                        )
+                        if (platformMode == AppPlatformMode.AI_ROAD_SAFETY) {
+                            NavigationRailItem(
+                                selected = currentRoute == "safety_home",
+                                onClick = { navigateToTab("safety_home") },
+                                icon = { Icon(Icons.Default.Shield, contentDescription = "AI Safety Home") },
+                                label = { Text("Safety Home", fontSize = 10.5.sp) },
+                                colors = NavigationRailItemDefaults.colors(
+                                    selectedIconColor = Color.White,
+                                    selectedTextColor = Color.White,
+                                    unselectedIconColor = Color.White.copy(alpha = 0.7f),
+                                    unselectedTextColor = Color.White.copy(alpha = 0.7f),
+                                    indicatorColor = CivicOrangePrimary
+                                ),
+                                modifier = Modifier.testTag("rail_tab_safety_home")
+                            )
 
-                        NavigationRailItem(
-                            selected = currentRoute == "civic_map",
-                            onClick = { navigateToTab("civic_map") },
-                            icon = { Icon(Icons.Default.LocationOn, contentDescription = "Map") },
-                            label = { Text(civicString(CivicStrings.MAP), fontSize = 11.sp) },
-                            colors = NavigationRailItemDefaults.colors(
-                                selectedIconColor = CivicNavyDark,
-                                selectedTextColor = Color.White,
-                                unselectedIconColor = Color.White.copy(alpha = 0.7f),
-                                unselectedTextColor = Color.White.copy(alpha = 0.7f),
-                                indicatorColor = CivicOrangeContainer
-                            ),
-                            modifier = Modifier.testTag("rail_tab_map")
-                        )
+                            NavigationRailItem(
+                                selected = currentRoute == "civic_map",
+                                onClick = { navigateToTab("civic_map") },
+                                icon = { Icon(Icons.Default.LocationOn, contentDescription = "CivicLive Map") },
+                                label = { Text("Live Map", fontSize = 10.5.sp) },
+                                colors = NavigationRailItemDefaults.colors(
+                                    selectedIconColor = Color.White,
+                                    selectedTextColor = Color.White,
+                                    unselectedIconColor = Color.White.copy(alpha = 0.7f),
+                                    unselectedTextColor = Color.White.copy(alpha = 0.7f),
+                                    indicatorColor = CivicOrangePrimary
+                                ),
+                                modifier = Modifier.testTag("rail_tab_map")
+                            )
 
-                        NavigationRailItem(
-                            selected = currentRoute == "community_feed",
-                            onClick = { navigateToTab("community_feed") },
-                            icon = { Icon(Icons.Default.Explore, contentDescription = "Feed") },
-                            label = { Text(civicString(CivicStrings.FEED), fontSize = 11.sp) },
-                            colors = NavigationRailItemDefaults.colors(
-                                selectedIconColor = CivicNavyDark,
-                                selectedTextColor = Color.White,
-                                unselectedIconColor = Color.White.copy(alpha = 0.7f),
-                                unselectedTextColor = Color.White.copy(alpha = 0.7f),
-                                indicatorColor = CivicGreenLight
-                            ),
-                            modifier = Modifier.testTag("rail_tab_feed")
-                        )
+                            NavigationRailItem(
+                                selected = currentRoute == "plan_journey",
+                                onClick = { navigateToTab("plan_journey") },
+                                icon = { Icon(Icons.Default.Directions, contentDescription = "Plan Journey") },
+                                label = { Text("Safe Route", fontSize = 10.5.sp) },
+                                colors = NavigationRailItemDefaults.colors(
+                                    selectedIconColor = Color.White,
+                                    selectedTextColor = Color.White,
+                                    unselectedIconColor = Color.White.copy(alpha = 0.7f),
+                                    unselectedTextColor = Color.White.copy(alpha = 0.7f),
+                                    indicatorColor = CivicOrangePrimary
+                                ),
+                                modifier = Modifier.testTag("rail_tab_plan_journey")
+                            )
 
-                        NavigationRailItem(
-                            selected = currentRoute == "report_issue",
-                            onClick = { navigateToTab("report_issue") },
-                            icon = { Icon(Icons.Default.Add, contentDescription = "Report") },
-                            label = { Text(civicString(CivicStrings.REPORT_ISSUE), fontSize = 11.sp) },
-                            colors = NavigationRailItemDefaults.colors(
-                                selectedIconColor = Color.White,
-                                selectedTextColor = Color.White,
-                                unselectedIconColor = CivicGreenLight,
-                                unselectedTextColor = CivicGreenLight,
-                                indicatorColor = CivicGreenPrimary
-                            ),
-                            modifier = Modifier.testTag("rail_tab_report")
-                        )
+                            NavigationRailItem(
+                                selected = false,
+                                onClick = { showEmergencySos = true },
+                                icon = { Icon(Icons.Default.Warning, contentDescription = "Emergency SOS") },
+                                label = { Text("SOS", fontSize = 10.5.sp) },
+                                colors = NavigationRailItemDefaults.colors(
+                                    selectedIconColor = Color.White,
+                                    selectedTextColor = CivicRed,
+                                    unselectedIconColor = CivicRed,
+                                    unselectedTextColor = CivicRed,
+                                    indicatorColor = CivicRedContainer
+                                ),
+                                modifier = Modifier.testTag("rail_tab_sos")
+                            )
 
-                        NavigationRailItem(
-                            selected = currentRoute == "my_issues",
-                            onClick = { navigateToTab("my_issues") },
-                            icon = { Icon(Icons.Default.Description, contentDescription = "My Tickets") },
-                            label = { Text(civicString(CivicStrings.TICKETS), fontSize = 11.sp) },
-                            colors = NavigationRailItemDefaults.colors(
-                                selectedIconColor = CivicNavyDark,
-                                selectedTextColor = Color.White,
-                                unselectedIconColor = Color.White.copy(alpha = 0.7f),
-                                unselectedTextColor = Color.White.copy(alpha = 0.7f),
-                                indicatorColor = CivicGreenLight
-                            ),
-                            modifier = Modifier.testTag("rail_tab_my_issues")
-                        )
+                            NavigationRailItem(
+                                selected = currentRoute == "citizen_profile",
+                                onClick = { navigateToTab("citizen_profile") },
+                                icon = { Icon(Icons.Default.Person, contentDescription = "Profile") },
+                                label = { Text(civicString(CivicStrings.PROFILE), fontSize = 10.5.sp) },
+                                colors = NavigationRailItemDefaults.colors(
+                                    selectedIconColor = Color.White,
+                                    selectedTextColor = Color.White,
+                                    unselectedIconColor = Color.White.copy(alpha = 0.7f),
+                                    unselectedTextColor = Color.White.copy(alpha = 0.7f),
+                                    indicatorColor = CivicOrangePrimary
+                                ),
+                                modifier = Modifier.testTag("rail_tab_profile")
+                            )
 
-                        NavigationRailItem(
-                            selected = currentRoute == "citizen_profile",
-                            onClick = { navigateToTab("citizen_profile") },
-                            icon = { Icon(Icons.Default.Person, contentDescription = "Profile") },
-                            label = { Text(civicString(CivicStrings.PROFILE), fontSize = 11.sp) },
-                            colors = NavigationRailItemDefaults.colors(
-                                selectedIconColor = CivicNavyDark,
-                                selectedTextColor = Color.White,
-                                unselectedIconColor = Color.White.copy(alpha = 0.7f),
-                                unselectedTextColor = Color.White.copy(alpha = 0.7f),
-                                indicatorColor = CivicGreenLight
-                            ),
-                            modifier = Modifier.testTag("rail_tab_profile")
-                        )
+                            NavigationRailItem(
+                                selected = currentRoute == "ai_chat",
+                                onClick = { navigateToTab("ai_chat") },
+                                icon = { Icon(Icons.Default.AutoAwesome, contentDescription = "AI Safety Guide") },
+                                label = { Text("AI Guide", fontSize = 10.5.sp) },
+                                colors = NavigationRailItemDefaults.colors(
+                                    selectedIconColor = Color.White,
+                                    selectedTextColor = Color.White,
+                                    unselectedIconColor = CivicOrangeLight,
+                                    unselectedTextColor = CivicOrangeLight,
+                                    indicatorColor = CivicOrangePrimary
+                                ),
+                                modifier = Modifier.testTag("rail_tab_ai_chat")
+                            )
+                        } else {
+                            NavigationRailItem(
+                                selected = currentRoute == "public_home",
+                                onClick = { navigateToTab("public_home") },
+                                icon = { Icon(Icons.Default.Home, contentDescription = "Home") },
+                                label = { Text(civicString(CivicStrings.HOME), fontSize = 11.sp) },
+                                colors = NavigationRailItemDefaults.colors(
+                                    selectedIconColor = CivicNavyDark,
+                                    selectedTextColor = Color.White,
+                                    unselectedIconColor = Color.White.copy(alpha = 0.7f),
+                                    unselectedTextColor = Color.White.copy(alpha = 0.7f),
+                                    indicatorColor = CivicGreenLight
+                                ),
+                                modifier = Modifier.testTag("rail_tab_home")
+                            )
 
-                        NavigationRailItem(
-                            selected = currentRoute == "ai_chat",
-                            onClick = { navigateToTab("ai_chat") },
-                            icon = { Icon(Icons.Default.AutoAwesome, contentDescription = "AI Guide") },
-                            label = { Text(civicString(CivicStrings.AI_GUIDE), fontSize = 11.sp) },
-                            colors = NavigationRailItemDefaults.colors(
-                                selectedIconColor = CivicNavyDark,
-                                selectedTextColor = Color.White,
-                                unselectedIconColor = CivicGreenLight,
-                                unselectedTextColor = CivicGreenLight,
-                                indicatorColor = CivicGreenLight
-                            ),
-                            modifier = Modifier.testTag("rail_tab_ai_chat")
-                        )
+                            NavigationRailItem(
+                                selected = currentRoute == "civic_map",
+                                onClick = { navigateToTab("civic_map") },
+                                icon = { Icon(Icons.Default.LocationOn, contentDescription = "Map") },
+                                label = { Text(civicString(CivicStrings.MAP), fontSize = 11.sp) },
+                                colors = NavigationRailItemDefaults.colors(
+                                    selectedIconColor = CivicNavyDark,
+                                    selectedTextColor = Color.White,
+                                    unselectedIconColor = Color.White.copy(alpha = 0.7f),
+                                    unselectedTextColor = Color.White.copy(alpha = 0.7f),
+                                    indicatorColor = CivicOrangeContainer
+                                ),
+                                modifier = Modifier.testTag("rail_tab_map")
+                            )
+
+                            NavigationRailItem(
+                                selected = currentRoute == "community_feed",
+                                onClick = { navigateToTab("community_feed") },
+                                icon = { Icon(Icons.Default.Explore, contentDescription = "Feed") },
+                                label = { Text(civicString(CivicStrings.FEED), fontSize = 11.sp) },
+                                colors = NavigationRailItemDefaults.colors(
+                                    selectedIconColor = CivicNavyDark,
+                                    selectedTextColor = Color.White,
+                                    unselectedIconColor = Color.White.copy(alpha = 0.7f),
+                                    unselectedTextColor = Color.White.copy(alpha = 0.7f),
+                                    indicatorColor = CivicGreenLight
+                                ),
+                                modifier = Modifier.testTag("rail_tab_feed")
+                            )
+
+                            NavigationRailItem(
+                                selected = currentRoute == "report_issue",
+                                onClick = { navigateToTab("report_issue") },
+                                icon = { Icon(Icons.Default.Add, contentDescription = "Report") },
+                                label = { Text(civicString(CivicStrings.REPORT_ISSUE), fontSize = 11.sp) },
+                                colors = NavigationRailItemDefaults.colors(
+                                    selectedIconColor = Color.White,
+                                    selectedTextColor = Color.White,
+                                    unselectedIconColor = CivicGreenLight,
+                                    unselectedTextColor = CivicGreenLight,
+                                    indicatorColor = CivicGreenPrimary
+                                ),
+                                modifier = Modifier.testTag("rail_tab_report")
+                            )
+
+                            NavigationRailItem(
+                                selected = currentRoute == "my_issues",
+                                onClick = { navigateToTab("my_issues") },
+                                icon = { Icon(Icons.Default.Description, contentDescription = "My Tickets") },
+                                label = { Text(civicString(CivicStrings.TICKETS), fontSize = 11.sp) },
+                                colors = NavigationRailItemDefaults.colors(
+                                    selectedIconColor = CivicNavyDark,
+                                    selectedTextColor = Color.White,
+                                    unselectedIconColor = Color.White.copy(alpha = 0.7f),
+                                    unselectedTextColor = Color.White.copy(alpha = 0.7f),
+                                    indicatorColor = CivicGreenLight
+                                ),
+                                modifier = Modifier.testTag("rail_tab_my_issues")
+                            )
+
+                            NavigationRailItem(
+                                selected = currentRoute == "citizen_profile",
+                                onClick = { navigateToTab("citizen_profile") },
+                                icon = { Icon(Icons.Default.Person, contentDescription = "Profile") },
+                                label = { Text(civicString(CivicStrings.PROFILE), fontSize = 11.sp) },
+                                colors = NavigationRailItemDefaults.colors(
+                                    selectedIconColor = CivicNavyDark,
+                                    selectedTextColor = Color.White,
+                                    unselectedIconColor = Color.White.copy(alpha = 0.7f),
+                                    unselectedTextColor = Color.White.copy(alpha = 0.7f),
+                                    indicatorColor = CivicGreenLight
+                                ),
+                                modifier = Modifier.testTag("rail_tab_profile")
+                            )
+
+                            NavigationRailItem(
+                                selected = currentRoute == "ai_chat",
+                                onClick = { navigateToTab("ai_chat") },
+                                icon = { Icon(Icons.Default.AutoAwesome, contentDescription = "AI Guide") },
+                                label = { Text(civicString(CivicStrings.AI_GUIDE), fontSize = 11.sp) },
+                                colors = NavigationRailItemDefaults.colors(
+                                    selectedIconColor = CivicNavyDark,
+                                    selectedTextColor = Color.White,
+                                    unselectedIconColor = CivicGreenLight,
+                                    unselectedTextColor = CivicGreenLight,
+                                    indicatorColor = CivicGreenLight
+                                ),
+                                modifier = Modifier.testTag("rail_tab_ai_chat")
+                            )
+                        }
                     } else {
                         // Admin Tablet Navigation Items
                         NavigationRailItem(
@@ -455,11 +563,20 @@ fun CivicFixApp(viewModel: CivicFixViewModel) {
                     if (!isAuthScreen && !isDetailScreen) {
                         CivicTopBar(
                             currentRole = currentRole,
+                            platformMode = platformMode,
                             unreadNotifCount = unreadNotifCount,
                             userName = currentUser?.name,
                             selectedLanguage = selectedLanguage,
                             onLanguageClick = {
                                 showLanguageModal = true
+                            },
+                            onPlatformModeChange = { newMode ->
+                                viewModel.setPlatformMode(newMode)
+                                if (newMode == AppPlatformMode.AI_ROAD_SAFETY) {
+                                    navigateToTab("safety_home")
+                                } else {
+                                    navigateToTab("public_home")
+                                }
                             },
                             onNotificationClick = {
                                 navigateToTab("notifications")
@@ -474,7 +591,7 @@ fun CivicFixApp(viewModel: CivicFixViewModel) {
                                 if (currentRole == UserRole.CITIZEN) {
                                     navigateToTab("admin_dashboard")
                                 } else {
-                                    navigateToTab("public_home")
+                                    navigateToTab(if (platformMode == AppPlatformMode.AI_ROAD_SAFETY) "safety_home" else "public_home")
                                 }
                             }
                         )
@@ -484,91 +601,180 @@ fun CivicFixApp(viewModel: CivicFixViewModel) {
                     // Only show bottom navigation on mobile phones
                     if (!isTablet && !isAuthScreen && !isDetailScreen) {
                         if (currentRole == UserRole.CITIZEN) {
-                            NavigationBar(
-                                containerColor = MaterialTheme.colorScheme.surface,
-                                tonalElevation = 8.dp,
-                                modifier = Modifier.testTag("citizen_bottom_bar")
-                            ) {
-                                NavigationBarItem(
-                                    selected = currentRoute == "public_home",
-                                    onClick = { navigateToTab("public_home") },
-                                    icon = { Icon(Icons.Default.Home, contentDescription = "Home") },
-                                    label = { Text(civicString(CivicStrings.HOME), fontSize = 11.sp, fontWeight = if (currentRoute == "public_home") FontWeight.Bold else FontWeight.Normal) },
-                                    colors = NavigationBarItemDefaults.colors(
-                                        selectedIconColor = MaterialTheme.colorScheme.primary,
-                                        selectedTextColor = MaterialTheme.colorScheme.primary,
-                                        unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        indicatorColor = MaterialTheme.colorScheme.primaryContainer
-                                    ),
-                                    modifier = Modifier.testTag("bottom_tab_home")
-                                )
-                                NavigationBarItem(
-                                    selected = currentRoute == "civic_map",
-                                    onClick = { navigateToTab("civic_map") },
-                                    icon = { Icon(Icons.Default.LocationOn, contentDescription = "Map") },
-                                    label = { Text(civicString(CivicStrings.MAP), fontSize = 11.sp, fontWeight = if (currentRoute == "civic_map") FontWeight.Bold else FontWeight.Normal) },
-                                    colors = NavigationBarItemDefaults.colors(
-                                        selectedIconColor = CivicOrangeDark,
-                                        selectedTextColor = CivicOrangeDark,
-                                        unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        indicatorColor = CivicOrangeContainer
-                                    ),
-                                    modifier = Modifier.testTag("bottom_tab_map")
-                                )
-                                NavigationBarItem(
-                                    selected = currentRoute == "report_issue",
-                                    onClick = { navigateToTab("report_issue") },
-                                    icon = {
-                                        Surface(
-                                            shape = RoundedCornerShape(10.dp),
-                                            color = CivicGreenPrimary,
-                                            modifier = Modifier.size(32.dp)
-                                        ) {
-                                            Box(contentAlignment = Alignment.Center) {
-                                                Icon(Icons.Default.Add, contentDescription = "Report", tint = Color.White, modifier = Modifier.size(18.dp))
+                            if (platformMode == AppPlatformMode.AI_ROAD_SAFETY) {
+                                NavigationBar(
+                                    containerColor = MaterialTheme.colorScheme.surface,
+                                    tonalElevation = 8.dp,
+                                    modifier = Modifier.testTag("ai_safety_bottom_bar")
+                                ) {
+                                    NavigationBarItem(
+                                        selected = currentRoute == "safety_home",
+                                        onClick = { navigateToTab("safety_home") },
+                                        icon = { Icon(Icons.Default.Shield, contentDescription = "Safety Home") },
+                                        label = { Text("Safety", fontSize = 11.sp, fontWeight = if (currentRoute == "safety_home") FontWeight.Bold else FontWeight.Normal) },
+                                        colors = NavigationBarItemDefaults.colors(
+                                            selectedIconColor = CivicOrangePrimary,
+                                            selectedTextColor = CivicOrangeDark,
+                                            unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            indicatorColor = CivicOrangeContainer
+                                        ),
+                                        modifier = Modifier.testTag("bottom_tab_safety_home")
+                                    )
+                                    NavigationBarItem(
+                                        selected = currentRoute == "civic_map",
+                                        onClick = { navigateToTab("civic_map") },
+                                        icon = { Icon(Icons.Default.LocationOn, contentDescription = "Live Map") },
+                                        label = { Text(civicString(CivicStrings.MAP), fontSize = 11.sp, fontWeight = if (currentRoute == "civic_map") FontWeight.Bold else FontWeight.Normal) },
+                                        colors = NavigationBarItemDefaults.colors(
+                                            selectedIconColor = CivicOrangePrimary,
+                                            selectedTextColor = CivicOrangeDark,
+                                            unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            indicatorColor = CivicOrangeContainer
+                                        ),
+                                        modifier = Modifier.testTag("bottom_tab_map")
+                                    )
+                                    NavigationBarItem(
+                                        selected = currentRoute == "plan_journey",
+                                        onClick = { navigateToTab("plan_journey") },
+                                        icon = {
+                                            Surface(
+                                                shape = RoundedCornerShape(10.dp),
+                                                color = CivicOrangePrimary,
+                                                modifier = Modifier.size(32.dp)
+                                            ) {
+                                                Box(contentAlignment = Alignment.Center) {
+                                                    Icon(Icons.Default.Directions, contentDescription = "Safe Route", tint = Color.White, modifier = Modifier.size(18.dp))
+                                                }
                                             }
-                                        }
-                                    },
-                                    label = { Text(civicString(CivicStrings.REPORT_ISSUE), fontSize = 11.sp, fontWeight = FontWeight.Bold, color = CivicGreenDark) },
-                                    colors = NavigationBarItemDefaults.colors(
-                                        selectedIconColor = CivicGreenPrimary,
-                                        selectedTextColor = CivicGreenDark,
-                                        unselectedIconColor = CivicGreenPrimary,
-                                        unselectedTextColor = CivicGreenDark,
-                                        indicatorColor = Color(0xFFDCFCE7)
-                                    ),
-                                    modifier = Modifier.testTag("bottom_tab_report")
-                                )
-                                NavigationBarItem(
-                                    selected = currentRoute == "community_feed",
-                                    onClick = { navigateToTab("community_feed") },
-                                    icon = { Icon(Icons.Default.Explore, contentDescription = "Feed") },
-                                    label = { Text(civicString(CivicStrings.FEED), fontSize = 11.sp, fontWeight = if (currentRoute == "community_feed") FontWeight.Bold else FontWeight.Normal) },
-                                    colors = NavigationBarItemDefaults.colors(
-                                        selectedIconColor = MaterialTheme.colorScheme.primary,
-                                        selectedTextColor = MaterialTheme.colorScheme.primary,
-                                        unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        indicatorColor = MaterialTheme.colorScheme.primaryContainer
-                                    ),
-                                    modifier = Modifier.testTag("bottom_tab_feed")
-                                )
-                                NavigationBarItem(
-                                    selected = currentRoute == "citizen_profile",
-                                    onClick = { navigateToTab("citizen_profile") },
-                                    icon = { Icon(Icons.Default.Person, contentDescription = "Profile") },
-                                    label = { Text(civicString(CivicStrings.PROFILE), fontSize = 11.sp, fontWeight = if (currentRoute == "citizen_profile") FontWeight.Bold else FontWeight.Normal) },
-                                    colors = NavigationBarItemDefaults.colors(
-                                        selectedIconColor = MaterialTheme.colorScheme.primary,
-                                        selectedTextColor = MaterialTheme.colorScheme.primary,
-                                        unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        indicatorColor = MaterialTheme.colorScheme.primaryContainer
-                                    ),
-                                    modifier = Modifier.testTag("bottom_tab_profile")
-                                )
+                                        },
+                                        label = { Text("Safe Route", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = CivicOrangeDark) },
+                                        colors = NavigationBarItemDefaults.colors(
+                                            selectedIconColor = CivicOrangePrimary,
+                                            selectedTextColor = CivicOrangeDark,
+                                            unselectedIconColor = CivicOrangePrimary,
+                                            unselectedTextColor = CivicOrangeDark,
+                                            indicatorColor = CivicOrangeContainer
+                                        ),
+                                        modifier = Modifier.testTag("bottom_tab_plan_journey")
+                                    )
+                                    NavigationBarItem(
+                                        selected = false,
+                                        onClick = { showEmergencySos = true },
+                                        icon = { Icon(Icons.Default.Warning, contentDescription = "Emergency SOS", tint = CivicRed) },
+                                        label = { Text("SOS", fontSize = 11.sp, fontWeight = FontWeight.Black, color = CivicRed) },
+                                        colors = NavigationBarItemDefaults.colors(
+                                            selectedIconColor = CivicRed,
+                                            selectedTextColor = CivicRed,
+                                            unselectedIconColor = CivicRed,
+                                            unselectedTextColor = CivicRed,
+                                            indicatorColor = CivicRedContainer
+                                        ),
+                                        modifier = Modifier.testTag("bottom_tab_sos")
+                                    )
+                                    NavigationBarItem(
+                                        selected = currentRoute == "citizen_profile",
+                                        onClick = { navigateToTab("citizen_profile") },
+                                        icon = { Icon(Icons.Default.Person, contentDescription = "Profile") },
+                                        label = { Text(civicString(CivicStrings.PROFILE), fontSize = 11.sp, fontWeight = if (currentRoute == "citizen_profile") FontWeight.Bold else FontWeight.Normal) },
+                                        colors = NavigationBarItemDefaults.colors(
+                                            selectedIconColor = CivicOrangePrimary,
+                                            selectedTextColor = CivicOrangeDark,
+                                            unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            indicatorColor = CivicOrangeContainer
+                                        ),
+                                        modifier = Modifier.testTag("bottom_tab_profile")
+                                    )
+                                }
+                            } else {
+                                NavigationBar(
+                                    containerColor = MaterialTheme.colorScheme.surface,
+                                    tonalElevation = 8.dp,
+                                    modifier = Modifier.testTag("citizen_bottom_bar")
+                                ) {
+                                    NavigationBarItem(
+                                        selected = currentRoute == "public_home",
+                                        onClick = { navigateToTab("public_home") },
+                                        icon = { Icon(Icons.Default.Home, contentDescription = "Home") },
+                                        label = { Text(civicString(CivicStrings.HOME), fontSize = 11.sp, fontWeight = if (currentRoute == "public_home") FontWeight.Bold else FontWeight.Normal) },
+                                        colors = NavigationBarItemDefaults.colors(
+                                            selectedIconColor = MaterialTheme.colorScheme.primary,
+                                            selectedTextColor = MaterialTheme.colorScheme.primary,
+                                            unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            indicatorColor = MaterialTheme.colorScheme.primaryContainer
+                                        ),
+                                        modifier = Modifier.testTag("bottom_tab_home")
+                                    )
+                                    NavigationBarItem(
+                                        selected = currentRoute == "civic_map",
+                                        onClick = { navigateToTab("civic_map") },
+                                        icon = { Icon(Icons.Default.LocationOn, contentDescription = "Map") },
+                                        label = { Text(civicString(CivicStrings.MAP), fontSize = 11.sp, fontWeight = if (currentRoute == "civic_map") FontWeight.Bold else FontWeight.Normal) },
+                                        colors = NavigationBarItemDefaults.colors(
+                                            selectedIconColor = CivicOrangeDark,
+                                            selectedTextColor = CivicOrangeDark,
+                                            unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            indicatorColor = CivicOrangeContainer
+                                        ),
+                                        modifier = Modifier.testTag("bottom_tab_map")
+                                    )
+                                    NavigationBarItem(
+                                        selected = currentRoute == "report_issue",
+                                        onClick = { navigateToTab("report_issue") },
+                                        icon = {
+                                            Surface(
+                                                shape = RoundedCornerShape(10.dp),
+                                                color = CivicGreenPrimary,
+                                                modifier = Modifier.size(32.dp)
+                                            ) {
+                                                Box(contentAlignment = Alignment.Center) {
+                                                    Icon(Icons.Default.Add, contentDescription = "Report", tint = Color.White, modifier = Modifier.size(18.dp))
+                                                }
+                                            }
+                                        },
+                                        label = { Text(civicString(CivicStrings.REPORT_ISSUE), fontSize = 11.sp, fontWeight = FontWeight.Bold, color = CivicGreenDark) },
+                                        colors = NavigationBarItemDefaults.colors(
+                                            selectedIconColor = CivicGreenPrimary,
+                                            selectedTextColor = CivicGreenDark,
+                                            unselectedIconColor = CivicGreenPrimary,
+                                            unselectedTextColor = CivicGreenDark,
+                                            indicatorColor = Color(0xFFDCFCE7)
+                                        ),
+                                        modifier = Modifier.testTag("bottom_tab_report")
+                                    )
+                                    NavigationBarItem(
+                                        selected = currentRoute == "community_feed",
+                                        onClick = { navigateToTab("community_feed") },
+                                        icon = { Icon(Icons.Default.Explore, contentDescription = "Feed") },
+                                        label = { Text(civicString(CivicStrings.FEED), fontSize = 11.sp, fontWeight = if (currentRoute == "community_feed") FontWeight.Bold else FontWeight.Normal) },
+                                        colors = NavigationBarItemDefaults.colors(
+                                            selectedIconColor = MaterialTheme.colorScheme.primary,
+                                            selectedTextColor = MaterialTheme.colorScheme.primary,
+                                            unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            indicatorColor = MaterialTheme.colorScheme.primaryContainer
+                                        ),
+                                        modifier = Modifier.testTag("bottom_tab_feed")
+                                    )
+                                    NavigationBarItem(
+                                        selected = currentRoute == "citizen_profile",
+                                        onClick = { navigateToTab("citizen_profile") },
+                                        icon = { Icon(Icons.Default.Person, contentDescription = "Profile") },
+                                        label = { Text(civicString(CivicStrings.PROFILE), fontSize = 11.sp, fontWeight = if (currentRoute == "citizen_profile") FontWeight.Bold else FontWeight.Normal) },
+                                        colors = NavigationBarItemDefaults.colors(
+                                            selectedIconColor = MaterialTheme.colorScheme.primary,
+                                            selectedTextColor = MaterialTheme.colorScheme.primary,
+                                            unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            indicatorColor = MaterialTheme.colorScheme.primaryContainer
+                                        ),
+                                        modifier = Modifier.testTag("bottom_tab_profile")
+                                    )
+                                }
                             }
                         } else {
                             // Admin Mobile Bottom Navigation Bar
@@ -660,8 +866,40 @@ fun CivicFixApp(viewModel: CivicFixViewModel) {
                 ) {
                     NavHost(
                         navController = navController,
-                        startDestination = "public_home"
+                        startDestination = "safety_home"
                     ) {
+                        // AI Road Safety Primary Home Dashboard
+                        composable("safety_home") {
+                            val weatherAlert = remember { viewModel.weatherService.getCurrentWeatherAlert() }
+                            val activeBusRoutes = remember { viewModel.busService.getActiveBusRoutes() }
+
+                            AiRoadSafetyHomeScreen(
+                                user = currentUser,
+                                origin = "Sector 62 IT Hub, Noida",
+                                destination = "Connaught Place, City Center",
+                                weatherAlert = weatherAlert,
+                                predictiveHazards = predictiveHazards,
+                                activeBusRoutes = activeBusRoutes,
+                                onPlanJourneyClick = { _, _ ->
+                                    navigateToTab("plan_journey")
+                                },
+                                onOpenMapClick = { navigateToTab("civic_map") },
+                                onReportHazardClick = { navigateToTab("report_issue") },
+                                onEmergencySosClick = { showEmergencySos = true },
+                                onAskAiClick = { query ->
+                                    viewModel.sendRoadSafetyAiMessage(query)
+                                    navController.navigate("road_safety_ai_chat")
+                                },
+                                onAlertClick = { _ ->
+                                    navigateToTab("civic_map")
+                                },
+                                onSwitchToCivicFix = {
+                                    viewModel.setPlatformMode(AppPlatformMode.CIVIC_FIX)
+                                    navigateToTab("public_home")
+                                }
+                            )
+                        }
+
                         // Public / Citizen Home
                         composable("public_home") {
                             PublicHomeScreen(
@@ -679,10 +917,7 @@ fun CivicFixApp(viewModel: CivicFixViewModel) {
                                     viewModel.toggleUpvote(issue)
                                 },
                                 onAiHelpClick = {
-                                    navController.navigate("ai_chat")
-                                },
-                                onPlanJourneyClick = {
-                                    navigateToTab("plan_journey")
+                                    navController.navigate("civic_fix_ai_chat")
                                 }
                             )
                         }
@@ -706,7 +941,32 @@ fun CivicFixApp(viewModel: CivicFixViewModel) {
                             SafeJourneyPlannerScreen(
                                 viewModel = viewModel,
                                 onNavigateToMap = { navigateToTab("civic_map") },
+                                onBookJourneyClick = { navigateToTab("book_journey") },
                                 onBack = { navController.popBackStack() }
+                            )
+                        }
+
+                        // Contactless Transit QR Ticket Booking
+                        composable("book_journey") {
+                            BookJourneyScreen(
+                                viewModel = viewModel,
+                                onBack = { navController.popBackStack() },
+                                onNavigateToMap = { navigateToTab("civic_map") },
+                                onBookingConfirmed = { _ ->
+                                    navController.navigate("my_bookings") {
+                                        popUpTo("safety_home")
+                                    }
+                                }
+                            )
+                        }
+
+                        // My Transit Tickets & QR Passes
+                        composable("my_bookings") {
+                            MyBookingsScreen(
+                                viewModel = viewModel,
+                                onBack = { navController.popBackStack() },
+                                onNavigateToMap = { navigateToTab("civic_map") },
+                                onBookNewJourney = { navigateToTab("book_journey") }
                             )
                         }
 
@@ -780,35 +1040,9 @@ fun CivicFixApp(viewModel: CivicFixViewModel) {
                                 it.reportedByEmail == (currentUser?.email ?: "rahul.sharma@example.com")
                             }
                             CitizenProfileScreen(
+                                viewModel = viewModel,
                                 user = currentUser,
                                 userIssues = userIssues,
-                                selectedLanguage = selectedLanguage,
-                                currentThemeMode = themeMode,
-                                notificationSettings = notificationSettings,
-                                onUpdateProfile = { name, email, phone ->
-                                    viewModel.updateUserProfile(name, email, phone)
-                                    Toast.makeText(context, "Profile updated successfully!", Toast.LENGTH_SHORT).show()
-                                },
-                                onChangePassword = { oldPass, newPass ->
-                                    Toast.makeText(context, "Password updated successfully!", Toast.LENGTH_SHORT).show()
-                                    true
-                                },
-                                onUpdateNotifications = { newSettings ->
-                                    viewModel.updateNotificationSettings(newSettings)
-                                    Toast.makeText(context, "Notification preferences saved", Toast.LENGTH_SHORT).show()
-                                },
-                                onSelectLanguage = { lang ->
-                                    viewModel.setLanguage(lang)
-                                    Toast.makeText(context, "Language changed to ${lang.englishName}", Toast.LENGTH_SHORT).show()
-                                },
-                                onSelectThemeMode = { mode ->
-                                    viewModel.setThemeMode(mode)
-                                    Toast.makeText(context, "Theme set to ${mode.displayName}", Toast.LENGTH_SHORT).show()
-                                },
-                                onSubmitFeedback = { type, subject, message, rating ->
-                                    viewModel.submitFeedback(type, subject, message, rating)
-                                    Toast.makeText(context, "Thank you for your feedback!", Toast.LENGTH_SHORT).show()
-                                },
                                 onSelectIssue = { id ->
                                     navController.navigate("issue_detail/$id")
                                 },
@@ -821,9 +1055,6 @@ fun CivicFixApp(viewModel: CivicFixViewModel) {
                                     navController.navigate("login") {
                                         popUpTo("public_home") { inclusive = true }
                                     }
-                                },
-                                onShowToast = { msg ->
-                                    Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
                                 }
                             )
                         }
@@ -990,43 +1221,81 @@ fun CivicFixApp(viewModel: CivicFixViewModel) {
                             )
                         }
 
-                        // AI Chat Assistant Screen
-                        composable("ai_chat") {
-                            val chatMessages by viewModel.chatMessages.collectAsState()
-                            val isAiTyping by viewModel.isAiTyping.collectAsState()
-
-                            AiChatAssistantScreen(
-                                messages = chatMessages,
-                                isAiTyping = isAiTyping,
-                                onSendMessage = { prompt ->
-                                    viewModel.sendAiChatMessage(prompt)
-                                },
-                                onClearChat = {
-                                    viewModel.clearAiChat()
-                                    Toast.makeText(context, "Chat history cleared", Toast.LENGTH_SHORT).show()
-                                },
-                                onNavigateBack = {
-                                    navController.popBackStack()
-                                },
-                                onNavigateToReport = {
-                                    navigateToTab("report_issue")
-                                }
+                        // AI Road Safety Assistant Screen
+                        composable("road_safety_ai_chat") {
+                            RoadSafetyAiChatScreen(
+                                viewModel = viewModel,
+                                onBack = { navController.popBackStack() },
+                                onNavigateToPlanner = { navigateToTab("plan_journey") },
+                                onNavigateToMap = { navigateToTab("civic_map") },
+                                onNavigateToBooking = { navigateToTab("book_journey") }
                             )
+                        }
+
+                        // CivicFix Grievance Assistant Screen
+                        composable("civic_fix_ai_chat") {
+                            CivicFixAiChatScreen(
+                                viewModel = viewModel,
+                                onBack = { navController.popBackStack() },
+                                onNavigateToReport = { navigateToTab("report_issue") },
+                                onNavigateToMyReports = { navigateToTab("my_issues") }
+                            )
+                        }
+
+                        // Unified AI Chat Assistant Screen (Dispatches to active mode)
+                        composable("ai_chat") {
+                            if (platformMode == AppPlatformMode.AI_ROAD_SAFETY) {
+                                RoadSafetyAiChatScreen(
+                                    viewModel = viewModel,
+                                    onBack = { navController.popBackStack() },
+                                    onNavigateToPlanner = { navigateToTab("plan_journey") },
+                                    onNavigateToMap = { navigateToTab("civic_map") },
+                                    onNavigateToBooking = { navigateToTab("book_journey") }
+                                )
+                            } else {
+                                CivicFixAiChatScreen(
+                                    viewModel = viewModel,
+                                    onBack = { navController.popBackStack() },
+                                    onNavigateToReport = { navigateToTab("report_issue") },
+                                    onNavigateToMyReports = { navigateToTab("my_issues") }
+                                )
+                            }
                         }
                     }
 
-                    // Global CivicFix Floating AI Assistant Button (Positioned at bottom right, strictly above navigation)
-                    if (!isAuthScreen && currentRoute != "ai_chat") {
+                    // Global CivicFix Floating AI Assistant Button (Mode-aware, shrunk by default)
+                    if (!isAuthScreen && currentRoute != "ai_chat" && currentRoute != "road_safety_ai_chat" && currentRoute != "civic_fix_ai_chat") {
                         GlobalFloatingAiButton(
+                            platformMode = platformMode,
                             onOpenAiChat = {
-                                navController.navigate("ai_chat")
+                                if (platformMode == AppPlatformMode.AI_ROAD_SAFETY) {
+                                    navController.navigate("road_safety_ai_chat")
+                                } else {
+                                    navController.navigate("civic_fix_ai_chat")
+                                }
                             },
                             onQuickAction = { prompt ->
-                                viewModel.triggerAiQuickAction(prompt)
-                                navController.navigate("ai_chat")
+                                if (platformMode == AppPlatformMode.AI_ROAD_SAFETY) {
+                                    viewModel.sendRoadSafetyAiMessage(prompt)
+                                    navController.navigate("road_safety_ai_chat")
+                                } else {
+                                    viewModel.sendCivicFixAiMessage(prompt)
+                                    navController.navigate("civic_fix_ai_chat")
+                                }
                             },
                             bottomPadding = 80.dp,
                             modifier = Modifier.align(Alignment.BottomEnd)
+                        )
+                    }
+
+                    // Emergency SOS Overlay Modal
+                    if (showEmergencySos) {
+                        EmergencySosModal(
+                            onDismiss = { showEmergencySos = false },
+                            onNavigateToMap = {
+                                showEmergencySos = false
+                                navigateToTab("civic_map")
+                            }
                         )
                     }
                 }

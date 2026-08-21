@@ -81,7 +81,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.ai.ChatMessage
-import com.example.data.ai.CivicAiPrompts
+import com.example.data.ai.CivicFixAiPrompts
 import com.example.data.localization.CivicStrings
 import com.example.data.localization.civicString
 import com.example.ui.components.AiTypingBubble
@@ -577,7 +577,7 @@ fun QuickPromptsHorizontalBar(
                 .padding(horizontal = 16.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            CivicAiPrompts.STARTER_PROMPTS.forEach { quickPrompt ->
+            CivicFixAiPrompts.STARTER_PROMPTS.forEach { quickPrompt ->
                 Surface(
                     shape = RoundedCornerShape(20.dp),
                     color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),

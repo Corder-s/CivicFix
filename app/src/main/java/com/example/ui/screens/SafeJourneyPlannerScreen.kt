@@ -123,6 +123,7 @@ import com.example.ui.theme.CivicSlate900
 fun SafeJourneyPlannerScreen(
     viewModel: CivicFixViewModel,
     onNavigateToMap: () -> Unit = {},
+    onBookJourneyClick: () -> Unit = {},
     onBack: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
@@ -289,10 +290,20 @@ fun SafeJourneyPlannerScreen(
                         verticalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
                         CivicButton(
+                            text = "BOOK TRANSIT TICKET (QR PASS)",
+                            onClick = onBookJourneyClick,
+                            variant = CivicButtonVariant.PRIMARY_ORANGE,
+                            size = CivicButtonSize.LARGE,
+                            leadingIcon = Icons.Default.Payments,
+                            modifier = Modifier.fillMaxWidth().testTag("btn_book_transit_ticket")
+                        )
+
+                        CivicButton(
                             text = civicString(CivicStrings.VIEW_ON_LIVE_MAP).uppercase(),
                             onClick = onNavigateToMap,
-                            variant = CivicButtonVariant.PRIMARY_GREEN,
+                            variant = CivicButtonVariant.SECONDARY_OUTLINE,
                             size = CivicButtonSize.LARGE,
+                            leadingIcon = Icons.Default.Map,
                             modifier = Modifier.fillMaxWidth().testTag("btn_view_on_map")
                         )
 
